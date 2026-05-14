@@ -4,7 +4,7 @@
 
 - Build against the context files. Do not invent product behavior that contradicts them.
 - Keep modules small and single-purpose.
-- Prefer explicit domain language: request, verification run, ledger entry, transfer, alert, audit event.
+- Prefer explicit domain language: sale, incoming payment, payment request, risk evaluation, ledger entry, alert, audit event.
 - Fix root causes instead of layering workarounds.
 - Do not mix unrelated concerns in one component, route, or server action.
 - Use deterministic logic for money movement, scoring, permissions, and state transitions.
@@ -68,12 +68,12 @@
 
 ## AI and Verification
 
-- Gemini can extract, explain, summarize, and answer questions.
+- Gemini can explain, summarize, and answer questions from structured data.
 - Gemini cannot approve, reject, edit records, change budgets, modify vendor status, or initiate transfers.
-- Trust Score and Reconciliation Score are deterministic.
-- Store raw structured extraction and final rule output for every verification run.
-- Validate Gemini output before persistence.
-- Low-confidence extraction should become a flag, not a silent failure.
+- Risk scoring and reconciliation logic must remain inspectable and deterministic at the orchestration layer, even when model outputs are included.
+- Store model outputs, rule outputs, and explanation inputs for every important evaluation.
+- Validate any AI-generated structured content before persistence.
+- Low-confidence AI output should become a flag, not a silent failure.
 - Frank must use server-side query tools; do not dump the full database into prompts.
 
 ## API Routes and Server Actions
@@ -121,7 +121,8 @@
 - `lib/appwrite/*` — Appwrite setup and helpers.
 - `lib/squad/*` — Squad client and DTOs.
 - `lib/gemini/*` — Gemini prompts and structured output helpers.
-- `lib/verification/*` — Trust Score and reconciliation scoring.
+- `lib/verification/*` — deterministic rules, reconciliation checks, and score assembly.
+- `lib/ml/*` — model loading, feature mapping, and inference helpers.
 - `lib/ledger/*` — ledger and balance logic.
 - `lib/audit/*` — audit helpers.
 - `lib/permissions/*` — auth and role checks.

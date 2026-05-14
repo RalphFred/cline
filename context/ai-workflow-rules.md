@@ -2,7 +2,7 @@
 
 ## Approach
 
-Build Cline incrementally using a spec-driven workflow. The context files define what to build, how it behaves, what is out of scope, and what decisions are already locked.
+Build Cline from the current demo scenario outward. The context files define the locked product shape and should be treated as the source of truth unless they are intentionally revised.
 
 Before implementation, read:
 
@@ -16,118 +16,170 @@ Before implementation, read:
 ## Product Guardrails
 
 - Cline is not a generic expense dashboard.
-- Cline is not a Ramp clone.
-- Cline is not a chatbot with payments attached.
-- Cline is an AI-assisted spend authorization and disbursement product for Nigerian SMEs.
-- The key demo story is: evidence enters, Cline verifies, admin decides, Squad moves money, audit trail closes.
+- Cline is not a retail POS app by itself.
+- Cline is not a chatbot with charts attached.
+- Cline is a finance operating system for Nigerian SMEs with embedded transaction intelligence.
+- The key demo story is: sale created, payment confirmed or missing, mismatch explained, outgoing request reviewed, human decides.
 
 ## Non-Negotiables
 
-1. No auto-approval in MVP.
-2. No AI-initiated transfers.
-3. No transfer without Super Admin approval.
-4. Trust Scores must be explainable.
-5. Squad integration must be meaningful.
-6. Appwrite is backend-of-record.
-7. Dark mode is out of scope.
-8. Department Head and Field Employee are mobile-only experiences for MVP.
+1. `sale` is the center of expected money-in.
+2. Inventory supports `inventory_sale`; inventory is not the whole product.
+3. Branches are out of scope.
+4. Departments remain only for money-out context.
+5. No partial payments in this phase.
+6. No auto-approval.
+7. No AI-initiated payouts.
+8. Squad must feel central to the workflow.
+9. Frank must answer from structured data and controlled tools.
+10. The trained models score risk only; they do not make final decisions.
 
 ## Scoping Rules
 
-- Work on one feature unit at a time.
-- Prefer small, verifiable increments over broad speculative changes.
-- Do not combine unrelated system boundaries in one implementation step.
-- If a change touches payments, ledger, permissions, and UI at once, split it.
-- If a requirement is missing, add it to `progress-tracker.md` before implementing.
-- If the implementation changes architecture, update `architecture.md` or `domain-model.md`.
-- If the implementation changes visual language, update `ui-context.md`.
+- Prioritize the six live demo flows over broader platform completeness.
+- Build one verifiable product slice at a time.
+- Prefer clarity over breadth.
+- If a proposed feature does not strengthen the locked demo story, defer it.
+- If a change alters role model, flow model, or data model, update the relevant context file before or with implementation.
 
-## When to Split Work
+## Locked Demo Flows
 
-Split an implementation step if it combines:
+1. `clean_pos_sale_flow`
+2. `inventory_mismatch_flow`
+3. `vendor_payment_flow`
+4. `staff_cash_request_flow`
+5. `transaction_explanation_flow`
+6. `business_qa_flow`
 
-- UI and payment provider integration.
-- AI extraction and transfer execution.
-- Auth setup and scoring logic.
-- Ledger calculations and dashboard polish.
-- Webhook processing and Frank chat behavior.
-- Multiple unrelated request types.
-
-If a change cannot be verified end to end quickly, the scope is too broad.
+These are the primary build targets. Other flows may exist in the product model, but they should not distract implementation from the demo spine.
 
 ## Recommended Build Order
 
-1. Project scaffold and design tokens.
-2. Appwrite auth/session foundation.
-3. Organization onboarding and seeded demo data.
-4. Role-specific shells and navigation.
-5. Request submission without AI.
-6. File upload and metadata.
-7. Squad account lookup.
-8. Gemini extraction.
-9. Deterministic Trust Score.
-10. Admin approval queue and detail page.
-11. Internal ledger and wallet balance.
-12. Squad transfer/requery/webhook.
-13. Field proof upload and reconciliation.
-14. Frank chat with query tools.
-15. Proactive alerts and Resend email.
-16. Reports/export and demo polish.
+1. Role-aware app shell and seeded demo users.
+2. Inventory catalog and stock movement.
+3. Sale creation for all three sale types.
+4. Clean POS sale flow with Squad-centered money-in recording.
+5. Inventory mismatch flow and reconciliation.
+6. Outgoing payment request creation flows.
+7. Admin review and approval surfaces.
+8. Deterministic risk/rule engine.
+9. ML artifact integration for anomaly/risk scoring.
+10. Frank explanation and business Q&A.
+11. Alerts, summaries, and demo polish.
+
+## When to Split Work
+
+Split work if it mixes too many of these at once:
+
+- inventory logic and payment rail integration
+- model training and UI polish
+- role/permissions work and anomaly scoring
+- Frank chat behavior and payout execution
+- money-in reconciliation and money-out workflow in one step
+
+If a change cannot be verified quickly in the context of a demo flow, the unit is too broad.
+
+## Handling AI Features
+
+### Frank
+
+Frank should do only these jobs:
+
+- explain why something was flagged
+- answer business questions about revenue, transactions, and activity
+- summarize what changed
+- surface anomalies and pending actions
+
+Frank should appear as:
+
+- chat
+- inline explanations
+- alerts/feed
+
+### Trained Models
+
+The project may speak about training, but that training story must stay honest.
+
+Allowed training story:
+
+- synthetic but realistic training data
+- trained ahead of time in Colab or equivalent
+- `Isolation Forest` for anomaly detection
+- `XGBoost` or `LightGBM` for risk scoring
+- artifacts loaded for inference in the app/demo
+
+Disallowed claims:
+
+- custom-trained LLM
+- autonomous finance AI
+- giant proprietary fraud dataset unless it actually exists
+- live retraining as a demo dependency
+
+### Rules and Scores
+
+- deterministic rules remain first-class
+- preserve both rule outputs and model outputs
+- Frank explanations should combine:
+  - structured facts
+  - rule outcomes
+  - model scores
+- score labels should not imply machine approval
+
+## Handling Payments
+
+- start with Squad sandbox or explicitly simulated Squad-adjacent demo states
+- keep provider interactions behind stable internal interfaces
+- keep status transitions explicit
+- webhook handlers must be idempotent
+- requery uncertain provider states
+- no automatic retry logic that hides ambiguity
+
+## Handling Money In
+
+- expected money comes from `sale`
+- actual money comes from Squad when available
+- `inventory_sale` must affect stock
+- `service_sale` and `manual_sale` must not affect stock
+- mismatches must become explicit records, not just vague UI warnings
+
+Primary mismatch story:
+
+- sale exists
+- stock drops
+- payment is missing or inconsistent
+- Cline flags it
+- Frank explains it
+
+## Handling Money Out
+
+- center all outgoing flows on `payment_request`
+- preserve typed request categories
+- require human approval for every outgoing flow
+- allow optional supporting documents where the scope requires flexibility
+- keep `super_admin` as final authority
+
+## Handling UI
+
+- admin is the main control room
+- mobile role surfaces should stay narrow and operational
+- do not build ornamental marketing UI
+- do not add dark mode
+- do not let Frank UI overshadow the finance workflow itself
+
+## Protected Behavior
+
+- do not revert to the old spend-only product framing
+- do not reintroduce branches
+- do not re-center the product on invoices
+- do not make model training the center of the application architecture
 
 ## Verification Checklist Per Unit
 
 Before moving on:
 
-1. The unit works for the intended role.
-2. Server-side authorization exists for any private data or mutation.
-3. Important state changes create audit events where applicable.
-4. TypeScript passes.
-5. The context files still match the implementation.
+1. The unit strengthens a locked demo flow.
+2. Role permissions are enforced server-side.
+3. Audit and status transitions are explicit.
+4. If scoring is involved, rule and/or model outputs are inspectable.
+5. TypeScript passes.
 6. `progress-tracker.md` is updated.
-
-## Handling AI Features
-
-- Use Gemini structured outputs for extraction.
-- Validate every structured output.
-- Store confidence and raw extracted data.
-- Let deterministic code calculate scores.
-- Frank must answer from server-side tool results.
-- AI uncertainty should be visible to the admin.
-
-## Handling Payments
-
-- Start with Squad sandbox.
-- Build provider clients behind stable internal interfaces.
-- Keep transfer state transitions explicit.
-- Make webhook handlers idempotent.
-- Requery uncertain transfers.
-- Use manual retry only.
-
-## Handling UI
-
-- Admin desktop screens should be dense, calm, and operational.
-- Department Head and Field Employee screens should be mobile-only and bottom-nav based.
-- Before implementing a UI primitive, check whether shadcn has it.
-- Add only the shadcn component required for the current feature.
-- Do not add a landing page unless explicitly requested.
-- Do not add dark mode.
-- Do not add decorative gradients, blobs, or marketing hero sections.
-
-## Protected Files
-
-- Do not manually rewrite generated shadcn/ui primitives unless the change is necessary and documented.
-- Do not edit provider SDK internals.
-- Do not remove context decisions without updating `progress-tracker.md` session notes.
-
-## Keeping Docs in Sync
-
-Update the relevant context file whenever implementation changes:
-
-- System architecture or boundaries.
-- Data model decisions.
-- Payment flow behavior.
-- AI scoring behavior.
-- Visual design tokens or navigation.
-- Feature scope.
-
-Always update `progress-tracker.md` after meaningful implementation changes.

@@ -1,7 +1,11 @@
+import Link from "next/link"
 import { ArrowRight, BadgeCheck, ShieldCheck, WalletCards } from "lucide-react"
 
+import { signOutAction } from "@/app/(auth)/sign-in/actions"
+import { getCurrentAppwriteAccount } from "@/lib/appwrite/session"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -36,7 +40,9 @@ const nextMilestones = [
   },
 ]
 
-export default function Home() {
+export default async function Home() {
+  const account = await getCurrentAppwriteAccount()
+
   return (
     <main className="min-h-screen bg-background px-4 py-8 text-foreground sm:px-6 lg:px-8">
       <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center">
@@ -78,10 +84,25 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            <Button className="gap-2">
-              Continue to app shell
-              <ArrowRight className="size-4" />
-            </Button>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Link
+                className={buttonVariants({
+                  className: "gap-2",
+                })}
+                href={account ? "/admin" : "/sign-in"}
+              >
+                {account ? "Continue to app shell" : "Sign in to continue"}
+                <ArrowRight className="size-4" />
+              </Link>
+
+              {account ? (
+                <form action={signOutAction}>
+                  <Button type="submit" variant="outline">
+                    Sign out
+                  </Button>
+                </form>
+              ) : null}
+            </div>
           </div>
 
           <Card className="border-border bg-card shadow-none">

@@ -4,31 +4,35 @@
 
 | Layer | Technology | Role |
 | --- | --- | --- |
-| Framework | Next.js App Router + TypeScript | Product UI, server routes, server actions, API orchestration |
-| UI | Tailwind CSS + shadcn/ui + Lucide | Responsive dashboard, mobile request flows, accessible components |
-| Backend of Record | Appwrite | Auth, database, storage, realtime subscriptions |
-| Database | Appwrite Databases | Organizations, users, requests, vendors, ledger, alerts, audit data |
-| File Storage | Appwrite Storage | Private invoice, proof, and organization document uploads |
-| Payments | Squad sandbox APIs | Virtual accounts, account lookup, transfers, requery, webhooks |
-| AI Extraction | Gemini API | Structured invoice/proof extraction and low-confidence summaries |
-| AI Assistant | Gemini API | Frank chat responses over server-side query tools |
-| Email | Resend | Critical alerts, proof requests, proof overdue reminders, digests |
-| Validation | Zod | Input validation at server boundaries and Gemini output validation |
+| Framework | Next.js App Router + TypeScript | Product UI, route handlers, orchestration |
+| UI | Tailwind CSS + shadcn/ui + Lucide | Admin and mobile product surfaces |
+| Backend of Record | Appwrite | Auth, database, storage, realtime |
+| Database | Appwrite Databases | Sales, inventory, payments, requests, alerts, audit data |
+| File Storage | Appwrite Storage | Supporting files, proofs, generated training metadata if needed |
+| Payment Rails | Squad APIs | POS collection, bank transfer events, payout flows |
+| AI Reasoning | Gemini API | Frank explanations and natural-language responses |
+| ML Training | Google Colab / Hugging Face notebook workflow | Pre-demo training for lightweight anomaly/risk models |
+| Email | Resend | Alerts and workflow notifications |
+| Validation | Zod | Input and model output validation |
 
 ## System Boundaries
 
-- `app/` — Next.js routes, layouts, role dashboards, server actions, API routes.
-- `components/` — shared product components and feature-specific UI.
-- `components/ui/` — generated shadcn/ui primitives. Avoid direct modification unless explicitly needed.
-- `lib/appwrite/` — Appwrite client creation, session helpers, server SDK helpers, collection IDs.
-- `lib/squad/` — Squad API client, account lookup, transfers, requery, webhook verification helpers.
-- `lib/gemini/` — Gemini client, structured extraction prompts, Frank prompt/tool orchestration.
-- `lib/verification/` — deterministic Trust Score and Reconciliation Score rules.
-- `lib/ledger/` — wallet ledger calculations, reservations, balance derivation, reconciliation helpers.
-- `lib/permissions/` — role and organization access checks.
-- `lib/email/` — Resend templates and send helpers.
-- `lib/audit/` — audit event creation and immutable timeline helpers.
-- `context/` — product, architecture, UI, domain, workflow, and progress specs.
+- `app/` — route groups for auth, admin, mobile, and APIs
+- `components/` — shared product components and feature UI
+- `components/ui/` — shadcn/ui primitives
+- `lib/appwrite/` — Appwrite clients, session, IDs
+- `lib/squad/` — Squad API client and provider helpers
+- `lib/inventory/` — stock movement and inventory logic
+- `lib/sales/` — sale creation and money-in reconciliation logic
+- `lib/payments/` — incoming payment and outgoing request orchestration
+- `lib/verification/` — deterministic rules, score assembly, mismatch evaluation
+- `lib/ml/` — model loading, feature mapping, inference helpers
+- `lib/frank/` — Frank query tools and response orchestration
+- `lib/ledger/` — ledger calculations and posting rules
+- `lib/permissions/` — auth and role checks
+- `lib/audit/` — audit event helpers
+- `lib/email/` — notification helpers
+- `context/` — product, architecture, UI, domain, workflow, and progress specs
 
 ## Runtime Architecture
 
@@ -41,346 +45,278 @@ flowchart LR
   Next --> AppwriteRealtime["Appwrite Realtime"]
   Next --> Squad["Squad APIs"]
   Next --> Gemini["Gemini API"]
+  Next --> ML["Local ML Inference Layer"]
   Next --> Resend["Resend Email"]
-  Squad --> Webhook["Next.js Squad Webhook Route"]
-  Webhook --> AppwriteDB
 ```
 
-Next.js owns all secret-bearing operations. Squad keys, Gemini keys, Resend keys, and Appwrite server keys never reach the browser.
+All secret-bearing calls stay on the server side. The browser should never call Squad, Gemini, model hosting, or Appwrite admin APIs directly.
+
+## Product Architecture View
+
+```mermaid
+flowchart TD
+  Sales["Sales Layer"] --> Recon["Reconciliation Layer"]
+  Inventory["Inventory Layer"] --> Recon
+  Recon --> Risk["Rules + ML Risk Layer"]
+  Outgoing["Payment Request Layer"] --> Risk
+  Risk --> Frank["Frank Intelligence Layer"]
+  Risk --> Approval["Human Approval Layer"]
+  Approval --> Squad["Squad Payment Rails"]
+  Squad --> Ledger["Ledger + Audit Layer"]
+  Recon --> Ledger
+```
+
+This is the intended product story:
+
+- sales create expected money-in
+- Squad and manual records represent actual money-in
+- inventory movement helps validate inventory-backed sales
+- rules plus lightweight models score anomalies
+- Frank explains and surfaces issues
+- humans approve outgoing money
+- Squad executes real or simulated movement
+- ledger and audit close the loop
 
 ## Auth and Access Model
 
-Appwrite Auth manages identities and sessions. Application roles are stored in profile/member records, not inferred from email.
+Appwrite Auth manages identity and session. Application roles are stored in membership records.
 
 ### Roles
 
 - `super_admin`
+- `sales_operator`
 - `department_head`
 - `field_employee`
 
 ### Access Rules
 
-1. Every authenticated user belongs to exactly one active organization in MVP.
-2. Super Admin can access every organization record, department, request, vendor, alert, transaction, and audit event for their organization.
-3. Department Head can access only their department's requests, proofs, and visible budget summary.
-4. Field Employee can access only their own requests, proof tasks, and profile.
-5. All mutations must enforce auth, organization membership, and role before doing business logic.
-6. Client-side hiding is never treated as authorization.
+1. Every authenticated user belongs to one active organization in MVP.
+2. `super_admin` can view and operate across the organization.
+3. `sales_operator` can create and review their sales-related work, but not approve outgoing payments.
+4. `department_head` can create department-related outgoing requests.
+5. `field_employee` can create staff cash requests and upload proof.
+6. Manual incoming payment confirmation is `super_admin` only in this phase.
+7. All authorization is enforced server-side.
 
 ## Squad Integration Architecture
 
-### Inbound Funding
+Squad must feel central to the product, not bolted on.
 
-- Each organization gets a Squad virtual account for master wallet funding.
-- Admin funds the organization wallet by bank transfer into that virtual account.
-- Squad webhook creates an inbound ledger entry.
-- During sandbox demo, a simulated funding entry may be created, clearly marked as sandbox/manual.
+### Money In
 
-### Account Lookup
+Supported collection sources:
 
-- Before a vendor or employee transfer, Cline calls Squad account lookup with `bank_code` and `account_number`.
-- Resolved account name is stored in verification evidence.
-- Vendor records remember submitted names and resolved account names for future mismatch detection.
+- POS payment
+- bank transfer
+- manual record
+- cash record
 
-### Outbound Transfers
+Preferred truth model:
 
-- All outbound payments use Squad Transfer API.
-- Amounts are sent in kobo.
-- Every transfer reference must be unique and include the Squad Merchant ID.
-- Cline never initiates transfer until a Super Admin approval action occurs.
-- Approval sequence:
-  1. Validate request state.
-  2. Recalculate available balance from ledger.
-  3. Create ledger reservation.
-  4. Generate Squad transfer reference.
-  5. Call Squad transfer.
-  6. Store raw Squad response.
-  7. Mark transfer pending/success/failed from response.
-  8. Confirm final state through webhook or requery.
-  9. Finalize or release reservation.
+- expected money comes from `sale`
+- actual money comes from Squad when available
+- manual/cash entries are supported as secondary paths
 
-### Transfer Requery and Retry
+### Clean POS Flow
 
-- If status is uncertain, Cline re-queries Squad before retrying.
-- Manual retry is Super Admin-only.
-- Retry must use a new Squad transaction reference.
-- Every retry is an audit event.
-- No automatic retry in MVP.
+1. `sales_operator` creates sale.
+2. Cline creates or references a POS collection request.
+3. Squad reports the payment result.
+4. Cline records incoming payment.
+5. Reconciliation compares sale amount to actual received amount.
+6. Sale status becomes `paid` or `mismatch_flagged`.
 
-### Webhooks
+### Flagged Money-In Flow
 
-Webhook routes must:
+1. Sale exists.
+2. Inventory is reduced for `inventory_sale`.
+3. Matching payment is absent or inconsistent.
+4. Reconciliation engine emits mismatch.
+5. Risk layer and Frank surface the issue.
 
-1. Verify webhook authenticity when Squad provides a verification method.
-2. Be idempotent by event ID, transaction reference, and payment reference.
-3. Store raw payloads for audit.
-4. Update ledger and transaction status only through controlled handlers.
-5. Ignore or flag payloads that do not map to known organization/request references.
+### Money Out
 
-## AI Architecture
+Supported outgoing request types:
 
-## Deterministic Rules First
+- `vendor_payment`
+- `staff_cash_request`
+- `airtime_data_request`
+- `utility_payment`
+- `manual_business_expense`
 
-The final Trust Score and Reconciliation Score are calculated by Cline code. Gemini may extract, summarize, and explain. Gemini never approves, rejects, edits budgets, edits vendors, initiates transfers, or overrides score calculations.
+Approval sequence:
 
-### Gemini Jobs
+1. Validate role and request state.
+2. Run deterministic rules and model scoring.
+3. Surface explanation and risk context.
+4. Require `super_admin` decision.
+5. Execute or simulate Squad payout.
+6. Record final status and audit trail.
 
-- Extract invoice fields into JSON.
-- Extract proof/receipt fields into JSON.
-- Summarize a request's risk report in natural language.
-- Answer Frank questions using server-side query tool results.
-- Draft alert language.
+### Webhooks and Requeries
 
-### Validation
+Webhook handlers must:
 
-Every Gemini structured output must be parsed and validated before being stored. If extraction is low-confidence or invalid, Cline stores the failure and flags manual review.
+1. verify authenticity when possible
+2. be idempotent
+3. preserve raw payloads
+4. map provider events back to known records
+5. update ledger and status through controlled handlers
 
-### Stored AI Evidence
+## Inventory Architecture
 
-Each verification run stores:
+Inventory is intentionally lightweight.
 
-- uploaded file IDs and hashes
-- extracted fields
-- extraction confidence
-- model name/version
-- prompt or prompt version
-- Squad lookup result
-- rule results
-- score breakdown
-- generated explanation
-- timestamp
-- triggering user/action
+Supported behavior:
 
-## Trust Score Architecture
+- product catalog
+- stock quantity on hand
+- stock-in records
+- stock reduction through `inventory_sale`
+- low-stock visibility
 
-### Vendor Invoice Trust Score
+Out of scope:
 
-Weighted total: 100 points.
+- branches
+- multi-warehouse logic
+- batch/expiry tracking
+- supplier PO lifecycle
+- advanced returns
 
-- Account name match: 25
-- Invoice extraction match: 20
-- Duplicate risk: 20
-- Budget pressure: 10
-- Amount anomaly: 15
-- Vendor history and policy: 10
+## AI and ML Architecture
 
-### Field Cash Trust Score
+## Key Principle
 
-Weighted total: 100 points.
+Frank is not the model. Frank is the intelligence experience over data, rules, and model outputs.
 
-- Employee history: 25
-- Amount normality: 25
-- Budget pressure: 20
-- Request frequency: 15
-- Policy fit: 15
+### Reasoning Layer
 
-### Field Proof Reconciliation Score
+Gemini is used for:
 
-Calculated after field cash payout and proof upload.
+- natural-language explanations
+- business question responses
+- summaries
+- alert wording
 
-- Proof amount vs approved amount.
-- Proof date/time vs request.
-- Merchant/category fit.
-- Duplicate proof hash.
-- Clarity/readability.
-- Suspicious mismatch flags.
+Gemini should answer from structured query outputs and stored evaluation artifacts. It should not invent financial facts.
 
-### Risk Bands
+### Trained Model Layer
 
-- 80-100: low concern
-- 60-79: needs review
-- 40-59: high concern
-- 0-39: critical concern
+For this phase, the AI training story includes:
 
-Labels must not imply AI approval. Use `low concern`, `needs review`, `high concern`, and `critical concern`.
+- `Isolation Forest` for anomaly detection
+- `XGBoost` or `LightGBM` for risk scoring
 
-## Frank Architecture
+Training setup:
 
-Frank is read-only and tool/query based.
+- trained beforehand in Colab or a similar notebook workflow
+- based on synthetic but realistic scenario data
+- artifacts saved and referenced by the app/demo
+- no live retraining during the demo
 
-### Query Tools
+Model outputs:
 
-Server-side query functions expose limited, structured data:
+- anomaly score
+- risk score
+- optional risk band
 
-- `getDepartmentSpend(period, departmentId)`
-- `searchPayments(filters)`
-- `getVendorHistory(vendorNameOrAccount)`
-- `getBudgetVariance(period)`
-- `getPendingRiskSummary()`
-- `getRequestExplanation(requestId)`
-- `getProofOverdueSummary()`
+Models do not:
 
-The app sends only tool results to Gemini for explanation. It does not dump the full database into the model.
+- approve
+- reject
+- transfer money
+- answer business KPI questions on their own
 
-### Alert Generation
+### Feature Engineering
 
-Rules engine and scheduled checks create alert records for:
+Likely input features include:
 
-- duplicate invoice
-- budget pace warning
-- vendor identity mismatch
-- request burst
-- high-value request
-- proof overdue or proof mismatch
+- sale amount
+- payment amount
+- amount deviation
+- sale type
+- payment source
+- stock reduced or not
+- payment recorded or not
+- request frequency
+- duplicate evidence hints
+- timing gaps
+- actor/role behavior markers
 
-Alerts appear in Frank chat, dashboard alert feed, and email depending on severity.
+### Deterministic Rules
 
-## Storage Model
+Rules remain first-class.
 
-### Appwrite Databases
+Examples:
 
-Stores structured data:
+- sale exists but payment missing
+- inventory reduced without corresponding payment
+- payment amount differs from expected sale amount
+- vendor request lacks supporting file
+- repeated staff cash request frequency spike
 
-- organizations
-- organization members
-- departments
-- spend policies
-- budgets
-- payment requests
-- request evidence
-- verification runs
-- vendors
-- employee bank profiles
-- ledger entries
-- transfers
-- webhooks
-- audit events
-- Frank messages
-- alerts
-- reports/exports metadata
+### Frank Query Tools
 
-### Appwrite Storage
+Frank business Q&A must come from query tools such as:
 
-Private buckets:
+- `getRevenueByPeriod(period)`
+- `getFlaggedTransactions()`
+- `getSaleMismatchDetails(saleId)`
+- `getPendingPaymentRequests()`
+- `getVendorPaymentHistory(vendorId)`
+- `getRequestRiskExplanation(requestId)`
 
-- `invoices`
-- `proofs`
-- `org-documents`
+## Ledger and Audit Architecture
 
-Files must have metadata rows with owner, organization, request, bucket, MIME type, size, hash, and created timestamp.
+Ledger is append-only.
 
-## Internal Wallet Ledger
+Use ledger entries for:
 
-Cline maintains an internal ledger derived from immutable entries. The displayed wallet balance is never manually edited.
+- incoming money
+- outgoing money
+- reservations
+- releases
 
-Ledger entry types:
+Audit events should exist for:
 
-- inbound funding
-- sandbox funding adjustment
-- reservation
-- reservation release
-- transfer debit
-- transfer failure release
-- reversal
-- correction
+- sale creation
+- stock movement
+- incoming payment recorded
+- mismatch flagged
+- payment request submitted
+- request approved or rejected
+- Squad callbacks/requeries
+- Frank-relevant risk evaluations when needed
 
-Balance is calculated from finalized and reserved entries. If Cline and Squad disagree, create a reconciliation alert rather than silently mutating history.
+## UI Architecture
 
-## Request Status Lifecycle
+### Route Surfaces
 
-Primary lifecycle:
+- `app/(auth)/` — sign in and auth
+- `app/(admin)/` — `super_admin` desktop-first control room
+- `app/(mobile)/` — simplified role-driven flows for `sales_operator`, `department_head`, and `field_employee`
 
-`draft -> submitted -> ai_verifying -> awaiting_admin -> more_proof_requested -> approved -> transfer_pending -> paid`
+### Primary Experience
 
-Vendor invoice path:
+The product should feel like an operational console, not a landing page.
 
-`paid -> closed`
+Main surfaces:
 
-Field cash path:
+- admin dashboard
+- sales entry and sale detail
+- inventory list/detail
+- incoming payment / mismatch views
+- payment request queue and detail
+- Frank panel and alerts
 
-`paid -> proof_required -> proof_under_review -> closed`
+## Implementation Priorities
 
-Failure and exception statuses:
-
-- `rejected`
-- `transfer_failed`
-- `proof_flagged`
-- `proof_overdue`
-- `cancelled`
-
-## Invariants
-
-1. No auto-approval exists in MVP.
-2. No transfer occurs without a Super Admin approval audit event.
-3. Gemini output is never trusted until validated by code.
-4. Trust Scores are deterministic and explainable.
-5. Secrets never reach the browser.
-6. Wallet balance is derived from ledger entries.
-7. Squad transfer references are unique and include Merchant ID.
-8. Retry uses a new transfer reference.
-9. Webhook handlers are idempotent.
-10. Audit events are append-only.
-11. Files are private and only accessed through authorized flows.
-12. Role checks happen server-side before every mutation.
-
-## Implementation Phases
-
-### Phase 0: Context and Project Scaffold
-
-- Lock product, architecture, UI, domain model, and workflow docs.
-- Scaffold Next.js, TypeScript, Tailwind, shadcn/ui, Appwrite SDK.
-- Create environment schema.
-
-### Phase 1: Auth, Org Setup, and Demo Data
-
-- Appwrite Auth integration.
-- Organization onboarding.
-- Departments, budgets, policies.
-- Seed Express Travels demo data and users.
-
-### Phase 2: Storage and Request Submission
-
-- Appwrite Storage buckets.
-- Shared request submission flow.
-- Vendor invoice upload.
-- Field cash request.
-- Request list per role.
-
-### Phase 3: Squad Account Lookup and Verification
-
-- Squad client.
-- Account lookup.
-- Gemini extraction.
-- Vendor invoice Trust Score.
-- Field cash Trust Score.
-- Verification evidence storage.
-
-### Phase 4: Admin Dashboard and Detail Page
-
-- Pending approval queue.
-- Request detail evidence view.
-- Approve, reject, request more proof.
-- Audit timeline.
-
-### Phase 5: Ledger and Transfers
-
-- Internal ledger.
-- Balance display.
-- Reservation flow.
-- Squad transfer.
-- Requery and manual retry.
-- Webhook handler.
-
-### Phase 6: Field Proof Reconciliation
-
-- Proof upload.
-- Gemini proof extraction.
-- Reconciliation Score.
-- Proof overdue handling.
-- Proof mismatch alerts.
-
-### Phase 7: Frank and Alerts
-
-- Frank chat UI.
-- Server-side query tools.
-- Proactive alert generation.
-- Dashboard badges/feed.
-- Resend emails for critical alerts and proof requests.
-
-### Phase 8: Reports, Polish, and Demo Readiness
-
-- Budget vs actual report.
-- Exportable ledger CSV.
-- Responsive QA.
-- Seeded demo walkthrough.
-- Error states, loading states, empty states.
+1. role-aware shells and seeded demo data
+2. inventory foundations
+3. sale creation
+4. clean POS sale confirmation flow
+5. mismatch detection flow
+6. outgoing request flows
+7. Frank explanation and business Q&A
+8. trained-model artifact integration
+9. demo polish

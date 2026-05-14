@@ -1,6 +1,11 @@
 import { FilePlus2, Home, ReceiptText, UserRound } from "lucide-react"
+import Link from "next/link"
+import { redirect } from "next/navigation"
 
+import { signOutAction } from "@/app/(auth)/sign-in/actions"
+import { getCurrentAppwriteAccount } from "@/lib/appwrite/session"
 import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -16,7 +21,13 @@ const navItems = [
   { label: "Profile", icon: UserRound },
 ]
 
-export default function MobileShellPage() {
+export default async function MobileShellPage() {
+  const account = await getCurrentAppwriteAccount()
+
+  if (!account) {
+    redirect("/sign-in?next=/mobile")
+  }
+
   return (
     <main className="min-h-screen bg-background px-4 py-5">
       <div className="mx-auto flex min-h-[calc(100vh-2.5rem)] max-w-sm flex-col">
@@ -26,6 +37,9 @@ export default function MobileShellPage() {
               Express Travels
             </p>
             <h1 className="mt-1 text-2xl font-bold">Mobile request shell</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Signed in as {account.name || account.email}
+            </p>
           </div>
 
           <Card className="shadow-none">
@@ -49,6 +63,17 @@ export default function MobileShellPage() {
               </CardDescription>
             </CardHeader>
           </Card>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Link className={buttonVariants({ variant: "outline" })} href="/">
+              Project shell
+            </Link>
+            <form action={signOutAction}>
+              <Button className="w-full" type="submit" variant="outline">
+                Sign out
+              </Button>
+            </form>
+          </div>
         </div>
 
         <nav className="fixed inset-x-0 bottom-0 border-t border-border bg-card/95 px-4 py-3 backdrop-blur">

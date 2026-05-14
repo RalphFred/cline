@@ -1,10 +1,22 @@
-import { Account, Client, Databases } from "appwrite"
+import { Account, Client, Databases, Storage } from "appwrite"
 
-const client = new Client()
-  .setEndpoint("https://fra.cloud.appwrite.io/v1")
-  .setProject("cline")
+import { getPublicEnv } from "@/lib/env"
 
-const account = new Account(client)
-const databases = new Databases(client)
+export function createAppwriteBrowserClient() {
+  const env = getPublicEnv()
 
-export { account, client, databases }
+  return new Client()
+    .setEndpoint(env.NEXT_PUBLIC_APPWRITE_ENDPOINT)
+    .setProject(env.NEXT_PUBLIC_APPWRITE_PROJECT_ID)
+}
+
+export function createAppwriteBrowserServices() {
+  const client = createAppwriteBrowserClient()
+
+  return {
+    client,
+    account: new Account(client),
+    databases: new Databases(client),
+    storage: new Storage(client),
+  }
+}

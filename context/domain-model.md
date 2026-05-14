@@ -1,6 +1,6 @@
 # Domain Model
 
-This file defines Cline's core entities, relationships, and important collection fields. Appwrite collection names can be adjusted during implementation, but the domain concepts should stay stable unless the product scope changes.
+This file defines the current core entities for the demo-first finance operating system build. The old spend-only model is no longer the center of the product.
 
 ## Entity Relationship Overview
 
@@ -8,42 +8,49 @@ This file defines Cline's core entities, relationships, and important collection
 erDiagram
   ORGANIZATION ||--o{ ORG_MEMBER : has
   ORGANIZATION ||--o{ DEPARTMENT : has
-  ORGANIZATION ||--o{ SPEND_POLICY : configures
-  ORGANIZATION ||--o{ VENDOR : remembers
+  ORGANIZATION ||--o{ INVENTORY_ITEM : owns
+  ORGANIZATION ||--o{ SALE : records
+  ORGANIZATION ||--o{ INCOMING_PAYMENT : receives
   ORGANIZATION ||--o{ PAYMENT_REQUEST : receives
   ORGANIZATION ||--o{ LEDGER_ENTRY : owns
   ORGANIZATION ||--o{ ALERT : receives
+  ORGANIZATION ||--o{ TRAINING_DATASET_RUN : generates
 
   ORG_MEMBER }o--|| USER_PROFILE : represents
-  ORG_MEMBER }o--|| DEPARTMENT : belongs_to
+  ORG_MEMBER }o--o| DEPARTMENT : belongs_to
 
-  DEPARTMENT ||--o{ DEPARTMENT_BUDGET : plans
-  DEPARTMENT ||--o{ PAYMENT_REQUEST : owns
+  INVENTORY_ITEM ||--o{ STOCK_MOVEMENT : changes_with
+  INVENTORY_ITEM ||--o{ SALE_LINE : appears_in
+
+  SALE ||--o{ SALE_LINE : contains
+  SALE ||--o| INCOMING_PAYMENT : reconciles_to
+  SALE ||--o{ RECONCILIATION_EVENT : records
+  SALE ||--o{ AUDIT_EVENT : records
 
   PAYMENT_REQUEST ||--o{ REQUEST_EVIDENCE : has
-  PAYMENT_REQUEST ||--o{ VERIFICATION_RUN : has
   PAYMENT_REQUEST ||--o{ APPROVAL_DECISION : has
-  PAYMENT_REQUEST ||--o{ TRANSFER : may_create
+  PAYMENT_REQUEST ||--o{ RISK_EVALUATION : has
   PAYMENT_REQUEST ||--o{ AUDIT_EVENT : records
   PAYMENT_REQUEST }o--o| VENDOR : pays
   PAYMENT_REQUEST }o--o| USER_PROFILE : pays_employee
 
-  VENDOR ||--o{ VENDOR_ALIAS : has
-  VENDOR ||--o{ PAYMENT_REQUEST : appears_in
+  INCOMING_PAYMENT ||--o{ RISK_EVALUATION : has
+  INCOMING_PAYMENT ||--o{ AUDIT_EVENT : records
 
-  TRANSFER ||--o{ LEDGER_ENTRY : posts
-  TRANSFER ||--o{ WEBHOOK_EVENT : updates
+  RISK_EVALUATION ||--o{ MODEL_SCORE : includes
+  RISK_EVALUATION ||--o{ RULE_RESULT : includes
 
-  ALERT }o--o| PAYMENT_REQUEST : references
-  ALERT }o--o| VENDOR : references
   FRANK_THREAD ||--o{ FRANK_MESSAGE : contains
+  ALERT }o--o| SALE : references
+  ALERT }o--o| PAYMENT_REQUEST : references
+  ALERT }o--o| INCOMING_PAYMENT : references
 ```
 
 ## Core Entities
 
 ### Organization
 
-Represents one SME/business workspace.
+Represents one SME workspace.
 
 Important fields:
 
@@ -51,22 +58,10 @@ Important fields:
 - `name`
 - `businessType`
 - `currency` fixed to `NGN`
-- `squadCustomerIdentifier`
-- `squadVirtualAccountNumber`
-- `squadVirtualAccountBankCode`
-- `squadVirtualAccountBankName`
 - `walletMode`: `sandbox` or `live`
 - `createdBy`
 - `createdAt`
 - `updatedAt`
-
-Relationships:
-
-- has many members
-- has many departments
-- has many requests
-- has one active spend policy
-- has many ledger entries
 
 ### User Profile
 
@@ -79,13 +74,12 @@ Important fields:
 - `name`
 - `email`
 - `phone`
-- `avatarFileId`
 - `createdAt`
 - `updatedAt`
 
 ### Organization Member
 
-Connects a user to an organization and defines their role.
+Connects a user to an organization and assigns a role.
 
 Important fields:
 
@@ -93,43 +87,20 @@ Important fields:
 - `organizationId`
 - `userProfileId`
 - `departmentId`
-- `role`: `super_admin`, `department_head`, `field_employee`
+- `role`: `super_admin`, `sales_operator`, `department_head`, `field_employee`
 - `status`: `active`, `invited`, `disabled`
 - `createdAt`
 - `updatedAt`
 
 Rules:
 
-- MVP assumes one active organization per user.
-- Field employees and department heads must have a department.
-- Super Admin may have no department or may belong to Finance.
-
-### Employee Bank Profile
-
-Stores payout details for users who may receive field cash transfers.
-
-Important fields:
-
-- `id`
-- `organizationId`
-- `userProfileId`
-- `bankCode`
-- `bankName`
-- `accountNumber`
-- `resolvedAccountName`
-- `lastLookupAt`
-- `isVerified`
-- `createdAt`
-- `updatedAt`
-
-Rules:
-
-- Squad account lookup should verify employee account details before first payout.
-- Bank details changes must create audit events.
+- one active organization per user in MVP
+- `department_head` and `field_employee` can belong to departments
+- `sales_operator` does not require a department
 
 ### Department
 
-Represents an internal business unit.
+Used only for money-out accountability in the current scope.
 
 Important fields:
 
@@ -141,45 +112,9 @@ Important fields:
 - `createdAt`
 - `updatedAt`
 
-### Department Budget
-
-Monthly planning number for a department.
-
-Important fields:
-
-- `id`
-- `organizationId`
-- `departmentId`
-- `month`: `YYYY-MM`
-- `plannedAmountKobo`
-- `createdBy`
-- `createdAt`
-- `updatedAt`
-
-Rules:
-
-- Budgets are not hard limits.
-- Budget pressure affects score and alerts.
-
-### Spend Policy
-
-Organization-level policy settings.
-
-Important fields:
-
-- `id`
-- `organizationId`
-- `highValueThresholdKobo`
-- `invoiceRequiredForVendorPayments`
-- `fieldProofDeadlineHours`
-- `allowedCategories`
-- `active`
-- `createdAt`
-- `updatedAt`
-
 ### Vendor
 
-Reusable recipient record for vendor invoice payments.
+Reusable recipient record for vendor payments.
 
 Important fields:
 
@@ -198,353 +133,322 @@ Important fields:
 - `createdAt`
 - `updatedAt`
 
-Rules:
+### Inventory Item
 
-- Same account number with different submitted names should produce a flag.
-- Blocked vendors cannot be paid until unblocked.
-- Watchlist vendors can be paid but must be visibly flagged.
-
-### Vendor Alias
-
-Tracks alternate submitted names for a vendor.
+Lightweight stock entity for product-backed sales.
 
 Important fields:
 
 - `id`
 - `organizationId`
-- `vendorId`
-- `submittedName`
-- `sourceRequestId`
-- `firstSeenAt`
-
-### Payment Request
-
-Central entity for vendor and field payments.
-
-Important fields:
-
-- `id`
-- `organizationId`
-- `departmentId`
-- `submittedByMemberId`
-- `requestType`: `vendor_invoice`, `field_cash`
-- `status`
-- `amountKobo`
-- `category`
-- `reason`
-- `recipientType`: `vendor`, `employee`
-- `vendorId`
-- `employeeProfileId`
-- `submittedVendorName`
-- `submittedBankCode`
-- `submittedAccountNumber`
-- `trustScore`
-- `concernLevel`: `low_concern`, `needs_review`, `high_concern`, `critical_concern`
-- `topFlags`
-- `proofDeadlineAt`
-- `createdAt`
-- `updatedAt`
-- `submittedAt`
-- `closedAt`
-
-Rules:
-
-- All submitted requests must reach `awaiting_admin`.
-- Approval is Super Admin-only.
-- Trust Score is informational.
-
-### Request Evidence
-
-Uploaded invoice/proof/vendor document metadata.
-
-Important fields:
-
-- `id`
-- `organizationId`
-- `requestId`
-- `uploadedByMemberId`
-- `evidenceType`: `invoice`, `field_proof`, `vendor_document`, `delivery_proof`, `bank_screenshot`
-- `storageBucket`
-- `fileId`
-- `fileName`
-- `mimeType`
-- `sizeBytes`
-- `sha256`
-- `extractionStatus`: `pending`, `extracted`, `failed`, `manual_review`
-- `createdAt`
-
-Rules:
-
-- File metadata is stored in database.
-- File bytes live in Appwrite Storage.
-- Duplicate checks use file hashes.
-
-### Verification Run
-
-Stores AI extraction plus deterministic rule results.
-
-Important fields:
-
-- `id`
-- `organizationId`
-- `requestId`
-- `runType`: `initial_trust_score`, `proof_reconciliation`, `manual_recheck`
-- `modelName`
-- `promptVersion`
-- `extractedFields`
-- `extractionConfidence`
-- `squadLookupResult`
-- `ruleResults`
-- `scoreBreakdown`
-- `finalScore`
-- `concernLevel`
-- `flags`
-- `recommendation`
-- `createdAt`
-
-Rules:
-
-- Store raw structured extraction and final rule output.
-- Never overwrite previous runs; create a new run.
-
-### Approval Decision
-
-Records Super Admin decisions.
-
-Important fields:
-
-- `id`
-- `organizationId`
-- `requestId`
-- `decidedByMemberId`
-- `decision`: `approved`, `rejected`, `more_proof_requested`
-- `message`
-- `createdAt`
-
-Rules:
-
-- Reject and request-more-proof require a message.
-- Approve creates an audit event and begins transfer flow.
-
-### Transfer
-
-Represents a Squad payout attempt.
-
-Important fields:
-
-- `id`
-- `organizationId`
-- `requestId`
-- `transferReference`
-- `squadTransactionReference`
-- `nipTransactionReference`
-- `amountKobo`
-- `bankCode`
-- `accountNumber`
-- `accountName`
-- `status`: `created`, `pending`, `success`, `failed`, `reversed`, `uncertain`
-- `rawSquadResponse`
-- `attemptNumber`
-- `createdAt`
-- `updatedAt`
-
-Rules:
-
-- Retry creates a new transfer record with a new reference.
-- Do not reuse transaction references.
-
-### Ledger Entry
-
-Immutable wallet accounting row.
-
-Important fields:
-
-- `id`
-- `organizationId`
-- `requestId`
-- `transferId`
-- `entryType`
-- `direction`: `credit`, `debit`, `reservation`
-- `amountKobo`
-- `status`: `pending`, `posted`, `released`, `reversed`
+- `sku`
+- `name`
 - `description`
-- `reference`
+- `unitPriceKobo`
+- `quantityOnHand`
+- `lowStockThreshold`
+- `status`: `active`, `archived`
 - `createdAt`
-
-Entry types:
-
-- `inbound_funding`
-- `sandbox_funding_adjustment`
-- `reservation`
-- `reservation_release`
-- `transfer_debit`
-- `transfer_failure_release`
-- `reversal`
-- `correction`
+- `updatedAt`
 
 Rules:
 
-- Balance is calculated from ledger entries.
-- Ledger entries are append-only.
+- inventory is organization-level
+- no branch ownership
+- no batch, expiry, or warehouse-transfer complexity in this phase
 
-### Webhook Event
+### Stock Movement
 
-Stores incoming Squad webhook payloads.
-
-Important fields:
-
-- `id`
-- `provider`: `squad`
-- `eventType`
-- `providerEventId`
-- `reference`
-- `payload`
-- `processingStatus`: `received`, `processed`, `ignored`, `failed`
-- `receivedAt`
-- `processedAt`
-
-Rules:
-
-- Webhook processing is idempotent.
-- Raw payloads are retained.
-
-### Audit Event
-
-Append-only user/system timeline.
+Immutable stock event.
 
 Important fields:
 
 - `id`
 - `organizationId`
-- `actorMemberId`
-- `actorType`: `user`, `system`, `squad`, `gemini`, `frank`
-- `entityType`
-- `entityId`
-- `eventType`
-- `summary`
-- `metadata`
+- `inventoryItemId`
+- `type`: `stock_in`, `sale_out`, `adjustment`
+- `quantityDelta`
+- `unitPriceKobo`
+- `saleId`
+- `reason`
+- `createdBy`
 - `createdAt`
 
-Rules:
+### Sale
 
-- Audit events are never edited or deleted by app workflows.
-- Important mutations must create audit events.
-
-### Alert
-
-Frank/dashboard/email alert record.
-
-Important fields:
-
-- `id`
-- `organizationId`
-- `alertType`
-- `severity`: `info`, `warning`, `critical`
-- `title`
-- `message`
-- `requestId`
-- `vendorId`
-- `departmentId`
-- `status`: `unread`, `read`, `dismissed`
-- `emailStatus`: `not_needed`, `queued`, `sent`, `failed`
-- `createdAt`
-- `readAt`
-
-### Frank Thread
-
-Conversation container for Super Admin.
+Primary expected-revenue object.
 
 Important fields:
 
 - `id`
 - `organizationId`
 - `createdByMemberId`
+- `saleType`: `inventory_sale`, `service_sale`, `manual_sale`
 - `title`
+- `customerLabel`
+- `expectedAmountKobo`
+- `status`: `pending_payment`, `paid`, `mismatch_flagged`
+- `paymentSourceExpected`: `bank_transfer`, `pos_payment`, `cash`, `manual_record`
+- `notes`
 - `createdAt`
 - `updatedAt`
 
-### Frank Message
+Rules:
 
-Stores chat messages and proactive alert messages.
+- `sales_operator` and `super_admin` can create sales
+- no partial-payment model in this phase
+- one sale reconciles to one expected amount
+
+### Sale Line
+
+Line items for a sale.
 
 Important fields:
 
 - `id`
 - `organizationId`
-- `threadId`
-- `sender`: `admin`, `frank`, `system`
-- `messageType`: `chat`, `alert`, `summary`
-- `content`
-- `toolCalls`
-- `relatedAlertId`
+- `saleId`
+- `kind`: `inventory_item`, `service_item`, `manual_item`
+- `inventoryItemId`
+- `label`
+- `quantity`
+- `unitPriceKobo`
+- `lineTotalKobo`
+
+Rules:
+
+- `inventory_sale` must have at least one line with `inventoryItemId`
+- `service_sale` and `manual_sale` do not require stock linkage
+
+### Incoming Payment
+
+Actual received-money record.
+
+Important fields:
+
+- `id`
+- `organizationId`
+- `saleId`
+- `sourceType`: `bank_transfer`, `pos_payment`, `cash`, `manual_record`
+- `amountKobo`
+- `status`: `recorded`, `matched`, `mismatch_flagged`, `unclassified`
+- `provider`: `squad`, `manual`
+- `providerReference`
+- `recordedByMemberId`
+- `recordedAt`
+- `createdAt`
+- `updatedAt`
+
+Rules:
+
+- Squad-originated records are system-created when possible
+- manual incoming records are `super_admin` controlled in this phase
+- incoming money may exist without a sale and be marked `unclassified`
+
+### Reconciliation Event
+
+Captures expected-vs-actual money-in checks.
+
+Important fields:
+
+- `id`
+- `organizationId`
+- `saleId`
+- `incomingPaymentId`
+- `outcome`: `matched`, `amount_mismatch`, `missing_payment`, `unclassified_payment`
+- `expectedAmountKobo`
+- `actualAmountKobo`
+- `summary`
 - `createdAt`
 
-## Status Reference
+### Payment Request
 
-Payment request statuses:
+Primary outgoing money object.
 
-- `draft`
-- `submitted`
-- `ai_verifying`
-- `awaiting_admin`
-- `more_proof_requested`
-- `approved`
-- `transfer_pending`
-- `paid`
-- `proof_required`
-- `proof_under_review`
-- `proof_overdue`
-- `proof_flagged`
-- `closed`
-- `rejected`
-- `transfer_failed`
-- `cancelled`
+Important fields:
 
-Transfer statuses:
+- `id`
+- `organizationId`
+- `createdByMemberId`
+- `departmentId`
+- `requestType`: `vendor_payment`, `staff_cash_request`, `airtime_data_request`, `utility_payment`, `manual_business_expense`
+- `title`
+- `reason`
+- `amountKobo`
+- `status`: `draft`, `submitted`, `needs_review`, `approved`, `rejected`, `paid`, `proof_required`, `closed`
+- `vendorId`
+- `employeeUserProfileId`
+- `createdAt`
+- `updatedAt`
 
-- `created`
-- `pending`
-- `success`
-- `failed`
-- `reversed`
-- `uncertain`
+Rules:
 
-Vendor statuses:
+- every submitted request requires human review
+- `department_head` and `field_employee` are primary creators depending on flow
+- `super_admin` is final approver
 
-- `normal`
-- `watchlist`
-- `blocked`
+### Request Evidence
 
-## Seed Demo Data
+Supporting files or metadata for payment requests.
 
-Organization:
+Important fields:
 
-- Express Travels
+- `id`
+- `organizationId`
+- `paymentRequestId`
+- `fileId`
+- `fileHash`
+- `fileType`
+- `purpose`: `invoice`, `receipt`, `proof`, `other`
+- `uploadedBy`
+- `createdAt`
 
-Departments:
+### Approval Decision
 
-- Procurement
-- Logistics
-- Operations
-- Finance
+Immutable admin decision record.
 
-Users:
+Important fields:
 
-- Super Admin: Ada Finance
-- Department Head: Tola Procurement
-- Department Head: Musa Logistics
-- Field Employee: Ibrahim Driver
+- `id`
+- `organizationId`
+- `paymentRequestId`
+- `decidedByMemberId`
+- `decision`: `approved`, `rejected`, `needs_more_context`
+- `note`
+- `createdAt`
 
-Example vendors:
+### Risk Evaluation
 
-- Chidi Prints Ltd
-- Mainland Motors
-- Ope Fuel Services
+Unified evaluation artifact for money-in and money-out records.
 
-Example scenarios:
+Important fields:
 
-- Vendor invoice with account name mismatch.
-- Vendor invoice duplicate.
-- Field fuel request with later matching proof.
-- Field proof overdue.
-- Logistics budget pace warning.
+- `id`
+- `organizationId`
+- `targetType`: `incoming_payment`, `sale`, `payment_request`
+- `targetId`
+- `riskScore`
+- `riskBand`: `low`, `medium`, `high`
+- `summary`
+- `createdBySystem`
+- `createdAt`
+
+Rules:
+
+- model output informs but does not decide
+- deterministic rules and model scores should both be preserved
+
+### Model Score
+
+Stores per-model outputs.
+
+Important fields:
+
+- `id`
+- `organizationId`
+- `riskEvaluationId`
+- `modelType`: `isolation_forest`, `xgboost`, `lightgbm`
+- `modelVersion`
+- `rawScore`
+- `normalizedScore`
+- `createdAt`
+
+### Rule Result
+
+Stores deterministic checks.
+
+Important fields:
+
+- `id`
+- `organizationId`
+- `riskEvaluationId`
+- `ruleCode`
+- `passed`
+- `weight`
+- `note`
+- `createdAt`
+
+### Ledger Entry
+
+Financial ledger event for inbound or outbound money.
+
+Important fields:
+
+- `id`
+- `organizationId`
+- `direction`: `inflow`, `outflow`, `reservation`, `release`
+- `amountKobo`
+- `sourceType`
+- `sourceId`
+- `reference`
+- `status`
+- `createdAt`
+
+### Alert
+
+Attention object surfaced in the UI and by Frank.
+
+Important fields:
+
+- `id`
+- `organizationId`
+- `type`: `money_in_mismatch`, `payment_request_risk`, `proof_overdue`, `manual_review`, `system_summary`
+- `severity`: `info`, `warning`, `critical`
+- `saleId`
+- `incomingPaymentId`
+- `paymentRequestId`
+- `headline`
+- `body`
+- `status`: `open`, `dismissed`, `resolved`
+- `createdAt`
+
+### Frank Thread
+
+Chat thread for Frank.
+
+Important fields:
+
+- `id`
+- `organizationId`
+- `createdByMemberId`
+- `contextType`
+- `contextId`
+- `createdAt`
+
+### Frank Message
+
+Chat message in a Frank thread.
+
+Important fields:
+
+- `id`
+- `threadId`
+- `role`: `user`, `assistant`, `tool`
+- `content`
+- `toolName`
+- `createdAt`
+
+### Training Dataset Run
+
+Tracks synthetic-data generation and training runs used for the demo AI story.
+
+Important fields:
+
+- `id`
+- `organizationId`
+- `name`
+- `datasetVersion`
+- `scenarioSource`
+- `trainedModels`: array of model names
+- `metricsSummary`
+- `artifactLocation`
+- `createdAt`
+
+## Important Modeling Rules
+
+1. `sale` is the center of expected money-in.
+2. Inventory supports sales; it is not the center of the whole product.
+3. Departments are for money-out only in this phase.
+4. Branches are removed from scope.
+5. Model scoring is assistive only.
+6. Final payout decisions remain human-controlled.

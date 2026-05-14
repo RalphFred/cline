@@ -1,6 +1,12 @@
-import { AlertTriangle, Brain, Clock, Wallet } from "lucide-react"
+import { AlertTriangle, Brain, Clock, LogOut, Wallet } from "lucide-react"
+import Link from "next/link"
+import { redirect } from "next/navigation"
 
+import { signOutAction } from "@/app/(auth)/sign-in/actions"
+import { getCurrentAppwriteAccount } from "@/lib/appwrite/session"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -34,7 +40,13 @@ const stats = [
   { label: "Frank notes", value: "7", icon: Brain },
 ]
 
-export default function AdminPage() {
+export default async function AdminPage() {
+  const account = await getCurrentAppwriteAccount()
+
+  if (!account) {
+    redirect("/sign-in?next=/admin")
+  }
+
   return (
     <main className="min-h-screen bg-background p-6">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
@@ -48,11 +60,27 @@ export default function AdminPage() {
               This shell will become the desktop-first command center for
               pending approvals, Frank, wallet health, and budget tracking.
             </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Signed in as {account.name || account.email}
+            </p>
           </div>
-          <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm">
-            <span className="text-muted-foreground">Wallet balance</span>
-            <div className="mt-1 font-mono text-xl font-semibold">
-              ₦12,450,000
+          <div className="flex flex-col gap-3 sm:items-end">
+            <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm">
+              <span className="text-muted-foreground">Wallet balance</span>
+              <div className="mt-1 font-mono text-xl font-semibold">
+                ₦12,450,000
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Link className={buttonVariants({ variant: "outline" })} href="/">
+                Project shell
+              </Link>
+              <form action={signOutAction}>
+                <Button className="gap-2" type="submit" variant="outline">
+                  <LogOut className="size-4" />
+                  Sign out
+                </Button>
+              </form>
             </div>
           </div>
         </div>

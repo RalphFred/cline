@@ -4,133 +4,153 @@ Update this file after every meaningful implementation change.
 
 ## Current Phase
 
-- Phase 0 complete.
-- Phase 1 foundation started.
+- Context reset complete.
+- Demo-scenario implementation planning active.
 
 ## Current Goal
 
-- Establish the Next.js, Tailwind, shadcn/ui, and provider foundation before feature implementation.
+- Align the repo with the new demo-first finance operating system scope before deeper feature implementation.
 
 ## Completed
 
-- Defined Cline as a spend authorization and disbursement platform for Nigerian SMEs.
-- Locked final product name: Cline.
-- Locked target market: SMEs/businesses.
-- Locked first demo organization: Express Travels.
-- Locked MVP roles:
-  - Super Admin
-  - Department Head
-  - Field Employee
-- Locked two MVP request types:
-  - Vendor Invoice Payment
-  - Field Cash Request
-- Locked no-auto-approval rule.
-- Locked Appwrite as backend-of-record.
-- Locked stack:
-  - Next.js
-  - TypeScript
-  - Tailwind
-  - shadcn/ui
-  - Appwrite
-  - Squad
-  - Gemini
-  - Resend
-- Locked Squad architecture:
-  - virtual account for inbound master wallet funding
-  - account lookup for recipient verification
-  - transfer API for outbound payouts
-  - webhook/requery for confirmation
-- Locked deterministic rules-first AI architecture.
-- Locked Gemini as LLM/extraction provider.
-- Locked Frank as read-only AI CFO assistant.
-- Locked Frank alert channels:
+- Reframed Cline from a spend authorization product into a broader finance operating system for Nigerian SMEs.
+- Locked the product around a demo-first scope instead of full platform breadth.
+- Locked the product center for money-in as `sale`.
+- Locked sale types:
+  - `inventory_sale`
+  - `service_sale`
+  - `manual_sale`
+- Moved invoice-first money-in out of the core phase scope.
+- Locked incoming payment source types:
+  - `bank_transfer`
+  - `pos_payment`
+  - `cash`
+  - `manual_record`
+- Locked inventory as a real lightweight stock layer.
+- Locked inventory behavior:
+  - only `inventory_sale` affects stock
+  - `service_sale` does not affect stock
+  - `manual_sale` does not affect stock
+- Removed branches from scope.
+- Kept departments only for money-out context.
+- Replaced spend-request-first framing with typed `payment_request` for money-out.
+- Locked outgoing request types:
+  - `vendor_payment`
+  - `staff_cash_request`
+  - `airtime_data_request`
+  - `utility_payment`
+  - `manual_business_expense`
+- Reconfirmed no auto-approval and human-in-the-loop final authority.
+- Locked the demo roles:
+  - `super_admin`
+  - `sales_operator`
+  - `department_head`
+  - `field_employee`
+- Locked `sales_operator` as able to create all three sale types.
+- Locked simple sale statuses:
+  - `pending_payment`
+  - `paid`
+  - `mismatch_flagged`
+- Locked the main flagged money-in story:
+  - sale exists
+  - stock drops
+  - no matching payment is recorded or payment is inconsistent
+- Locked Frank as part of the product.
+- Locked Frank responsibilities:
+  - transaction explanation
+  - business Q&A
+  - system summary
+  - anomaly surfacing
+- Locked Frank UI presence:
   - chat
-  - dashboard badge/feed
-  - email
-- Locked monthly department budgets as planning signals, not hard limits.
-- Locked vendor records with normal/watchlist/blocked statuses.
-- Locked Appwrite Storage buckets:
-  - invoices
-  - proofs
-  - org-documents
-- Locked Resend for email.
-- Locked UI direction:
-  - light-only
-  - simplified Squad-inspired palette
-  - admin desktop-first responsive
-  - Department Head and Field Employee mobile-only
-- Added `context/domain-model.md`.
-- Updated `AGENT.md` reading order to include domain model.
-- Scaffolded the Next.js App Router project with TypeScript, Tailwind, and pnpm.
-- Initialized shadcn/ui and added only baseline primitives needed for early setup.
-- Added Lucide, Appwrite, Gemini SDK, Resend, Zod, React Hook Form, date-fns, Sonner, and utility dependencies.
-- Wired Cline light theme tokens into `src/app/globals.css`.
-- Added root app providers for Tooltip and Sonner.
-- Added Appwrite web SDK client for project `cline`.
-- Removed the temporary automatic Appwrite `client.ping()` check from app load.
-- Added initial `/`, `/admin`, and `/mobile` scaffold pages.
-- Added `.env.example`.
-- Added initial domain code folders and boundary READMEs under `src/lib` and `src/components`.
-- Updated UI/code workflow docs to require checking shadcn before implementing UI primitives.
-- Verified TypeScript and ESLint pass.
-- Verified production build passes outside sandbox.
+  - alerts/feed
+  - inline explanations
+- Locked Frank business Q&A as query-tool based.
+- Locked the hero Frank question:
+  - "Why was this transaction flagged?"
+- Locked the secondary Frank question:
+  - "What was our revenue last month?"
+- Locked the AI/training story:
+  - training happens beforehand
+  - data is synthetic but realistic
+  - trained artifacts are lightweight
+  - model output is risk/anomaly scoring only
+- Locked model families to mention and train:
+  - `Isolation Forest`
+  - `XGBoost` or `LightGBM`
+- Locked the live demo flows:
+  - `clean_pos_sale_flow`
+  - `inventory_mismatch_flow`
+  - `vendor_payment_flow`
+  - `staff_cash_request_flow`
+  - `transaction_explanation_flow`
+  - `business_qa_flow`
+- Rewrote the context set to reflect the new product scope:
+  - `context/project-overview.md`
+  - `context/domain-model.md`
+  - `context/architecture.md`
+  - `context/ai-workflow-rules.md`
+  - `context/ui-context.md`
+  - `context/progress-tracker.md`
 
 ## In Progress
 
-- Package manager cleanup: `package.json` has removed unused shadcn/next-themes runtime entries, but `pnpm-lock.yaml` should be normalized by running `pnpm install` after resolving the local pnpm store mismatch.
+- Converting the implementation plan and codebase assumptions from the old spend-only shape to the new demo-driven finance OS shape.
 
 ## Next Up
 
-1. Normalize pnpm lockfile with `pnpm install`.
-2. Configure Appwrite client/server helpers and environment schema.
-3. Implement auth/session shell.
-4. Build organization onboarding.
-5. Seed Express Travels demo organization and role-specific users.
+1. Update seeded demo assumptions and route shells for the new role model.
+2. Build inventory foundations.
+3. Build sale creation flows.
+4. Build the clean POS sale flow.
+5. Build the inventory mismatch flow.
+6. Build typed outgoing payment request flows.
+7. Add Frank explanations and business Q&A.
+8. Prepare lightweight ML training artifacts and integration path.
 
 ## Open Questions
 
-These are not blockers for scaffolding, but should be resolved before the affected phase:
-
-1. Exact Appwrite project/database/collection IDs and whether they will be created manually or scripted.
-2. Whether Squad sandbox credentials and Merchant ID are already available.
-3. Whether Gemini API key is available and which Gemini model to use initially.
-4. Whether Resend domain is configured or MVP email should use a sandbox sender.
-5. Exact proof deadline default: recommended default is 24 hours.
-6. Exact high-value threshold default: recommended demo default is ₦500,000.
-7. Whether Appwrite Functions will be used later for scheduled jobs or all cron-like work will stay external for MVP.
+1. Which exact demo company name should replace the older spend-demo framing if we want one canonical organization in code and copy.
+2. Whether Squad POS flow will be fully live in sandbox or partly simulated in the demo.
+3. Which of `XGBoost` or `LightGBM` should be the concrete second trained model.
+4. Where trained model artifacts will live for app inference.
+5. Whether business Q&A will be backed directly by Appwrite queries alone or by a small server-side analytics cache/helper layer.
+6. How much of outgoing payout execution will be real versus simulated in the final demo run.
 
 ## Architecture Decisions
 
-### Backend of Record
+### Product Shape
 
-Appwrite is the backend-of-record for auth, database, storage, and realtime. Next.js owns orchestration and all secret-bearing provider calls.
+Cline is currently a demo-first finance operating system with embedded transaction intelligence. The product story is broader than the implementation slice, but implementation must stay focused on the locked live demo flows.
 
-### Money Movement
+### Money In
 
-Squad is the payment rail. Inbound funding uses virtual accounts. Outbound transfers use Transfer API. Cline keeps an internal append-only ledger that mirrors Squad activity.
+Expected money is created by `sale`. Actual money is recorded through Squad when available or manually by controlled flows. Inventory is a supporting validation layer for inventory-backed sales.
 
-### Approval
+### Money Out
 
-No request can be auto-approved. The Trust Score is informational and all submitted requests go to the Super Admin.
+Outgoing money is modeled as typed `payment_request` records with mandatory human approval.
 
 ### AI
 
-Gemini can extract, summarize, and answer via Frank. Gemini cannot approve, reject, change records, or initiate transfers. Scores are deterministic and explainable.
+Frank is a structured intelligence layer over data, query tools, deterministic rules, and lightweight trained models. Frank is not an autonomous decision engine and not a custom-trained LLM.
+
+### Training
+
+The AI training story for the demo is lightweight and credible:
+
+- synthetic scenario-derived data
+- training beforehand
+- `Isolation Forest`
+- `XGBoost` or `LightGBM`
 
 ### UI
 
-Light mode only. The design uses a stripped-down Squad-inspired fintech palette. Admin is desktop-first and responsive. Department Head and Field Employee are mobile-only for MVP.
+The UI should present a finance control room, not a marketing site and not a chatbot shell.
 
 ## Session Notes
 
-- The original repo was a placeholder context template.
-- The product was refined through a 50-question grill session.
-- A Claude share about RampX was inspected through the in-app browser and used as background context.
-- Final product differs from the earlier RampX framing:
-  - name is Cline
-  - target is SMEs/businesses
-  - no auto-approval
-  - budgets are planning signals
-  - Frank is included
-  - Appwrite is backend-of-record
-- The next agent should read all context files before scaffolding code.
+- The product scope changed materially during the grill session.
+- The old context described a spend authorization platform and is no longer the right source of truth.
+- The new product direction was locked through a focused demo-scenario interview.
+- The next implementation work should follow the rewritten context files before expanding code.

@@ -2,24 +2,28 @@
 
 ## Theme
 
-Cline uses a light-only Nigerian fintech operations theme. The interface should feel calm, trustworthy, and fast to scan. It borrows the cool blue surface language and confident typography of the Squad Architecture vibe, but strips the palette down for an approval-heavy finance product.
+Cline uses a light-only operational fintech theme. The product should feel like a finance control room for a Nigerian SME, not a landing page and not a generic admin template.
 
-The product is not a marketing site. Authenticated screens should lead with work: pending approvals, request status, evidence, alerts, and transaction history.
+The new product is centered on:
 
-Dark mode is out of scope for MVP.
+- money-in visibility
+- inventory-backed reconciliation
+- outgoing payment control
+- Frank explanations and business Q&A
+
+Dark mode remains out of scope.
 
 ## Visual Personality
 
 - Professional and operational.
-- High-contrast but not loud.
-- Finance-grade clarity over decorative drama.
-- Mobile-first for Department Head and Field Employee.
-- Desktop-first and responsive for Super Admin.
-- Nigerian SME context should show in examples, amounts, categories, and flows, not in visual gimmicks.
+- Calm, dense, and credible.
+- Data-forward rather than decorative.
+- Slightly more dynamic than the old spend-only product because money-in, alerts, and inventory must feel alive.
+- Nigerian business context should show through examples, transaction labels, and flows rather than visual cliches.
 
 ## Colors
 
-All components must use CSS variables or Tailwind tokens derived from them. Do not hardcode hex values in components.
+All colors must come from tokens or CSS variables. Do not hardcode component hex values.
 
 | Role | CSS Variable | Value |
 | --- | --- | --- |
@@ -42,13 +46,13 @@ All components must use CSS variables or Tailwind tokens derived from them. Do n
 
 ### Color Usage
 
-- Use `--accent-primary` for primary actions like submit, continue, view details, and save.
-- Use `--accent-brand` sparingly for brand-defining moments, Frank highlights, and high-attention accents.
-- Use status colors consistently:
-  - success for paid, closed, verified
-  - warning for needs review, proof overdue, budget pace warnings
-  - error/critical for transfer failures, blocked vendors, critical concern
-- Avoid one-note blue screens. White surfaces and clear status color should break up the cool background.
+- use `--accent-primary` for core actions
+- use `--accent-brand` sparingly for Frank highlights and high-attention markers
+- success indicates clean paid or confirmed states
+- warning indicates review states, mismatches, or delayed action
+- error/critical indicates serious inconsistency or failed operational outcomes
+
+Money-in, mismatch, and approval states must be visually distinct without turning the interface loud.
 
 ## Typography
 
@@ -70,8 +74,6 @@ All components must use CSS variables or Tailwind tokens derived from them. Do n
 | Small body | 14px | 14px | 400 | 1.45 |
 | Label | 12px | 12px | 500 | 1.3 |
 
-No viewport-width font scaling. Letter spacing should be zero except small labels, where `0.02em` to `0.04em` is allowed.
-
 ## Spacing
 
 Base unit: 4px.
@@ -88,7 +90,7 @@ Base unit: 4px.
 | `--desktop-gutter` | 24px |
 | `--mobile-margin` | 16px |
 
-Admin screens should be dense enough for finance work. Mobile screens should favor clear single-column flows with large touch targets.
+Admin surfaces should be information-rich without feeling cramped. Mobile flows should stay narrow, sequential, and fast to scan.
 
 ## Border Radius
 
@@ -100,17 +102,11 @@ Admin screens should be dense enough for finance work. Mobile screens should fav
 | Modals/sheets | 16px |
 | Pills/status chips | 9999px |
 
-Avoid nested cards. Page sections are layouts, not cards inside cards. Cards are for repeated items, panels, modals, and intentionally framed tools.
-
 ## Component Library
 
 Use shadcn/ui on top of Tailwind. Generated primitives live in `components/ui/`.
 
-Before implementing any UI control, check whether shadcn already provides an appropriate primitive. If it exists, add and use the shadcn component instead of building a custom version. Do not bulk-install the entire registry; add only the component needed for the current feature.
-
-Custom components should compose shadcn primitives and Cline tokens. Only build a fully custom primitive when shadcn does not have the needed control or when the product behavior is genuinely domain-specific.
-
-Preferred UI primitives:
+Preferred primitives:
 
 - Button
 - Input
@@ -123,158 +119,193 @@ Preferred UI primitives:
 - Dropdown Menu
 - Badge
 - Table
-- Card only for actual repeated items/panels
+- Card
 - Tooltip
-- Toast/Sonner
+- Sonner
 
-Use Lucide React icons for common actions. Icon buttons need accessible labels and tooltips when meaning is not obvious.
+Do not bulk-install shadcn registry components. Add only what the current feature needs.
 
 ## Layout Patterns
 
 ### Super Admin Desktop
 
-- Persistent left sidebar.
-- Top header with org switch/name, wallet balance, alert badge, and user menu.
-- Main content constrained to 1280px where appropriate.
-- Approval queue is the primary dashboard surface.
-- Frank lives in a right panel or dedicated side column on dashboard.
-- Detail pages use a two-column layout:
-  - main evidence and report
-  - right-side recipient, budget, and actions
+This is the main product surface.
 
-### Super Admin Mobile
+Structure:
 
-- Responsive emergency workflow, not full desktop parity.
-- Bottom navigation or compact menu:
-  - Dashboard
-  - Approvals
-  - Frank
-  - More
-- Approval detail actions remain available but require confirmation.
+- persistent left sidebar
+- top header with organization name, alert state, and user menu
+- main dashboard area
+- Frank panel or rail
 
-### Department Head Mobile
+Priority areas:
 
-Mobile-only MVP experience. If opened on desktop, render a centered mobile-width layout.
+1. money-in health
+2. flagged mismatches
+3. outgoing request queue
+4. recent activity
+5. Frank intelligence
 
-Bottom nav:
+### Mobile Role Surfaces
 
-- Home
-- Submit
-- Requests
-- Profile
+The mobile experience should stay role-specific and limited.
 
-### Field Employee Mobile
+`sales_operator`
 
-Mobile-only MVP experience with fewer choices.
+- focused on sale creation and recent sales activity
 
-Bottom nav:
+`department_head`
 
-- Home
-- New
-- Proofs
-- Profile
+- focused on submitting and tracking outgoing requests
+
+`field_employee`
+
+- focused on staff cash request and proof upload
+
+If a mobile-only role is opened on desktop, render it in a constrained centered shell instead of trying full desktop parity.
 
 ## Core Screen Requirements
 
 ### Admin Dashboard
 
-Priority order:
-
-1. Pending decisions.
-2. Intelligence and alerts.
-3. History and reports.
+The dashboard should feel like a finance command center.
 
 Must show:
 
-- Wallet balance.
-- Pending approvals total.
-- Month-to-date spend.
-- Departments over budget pace.
-- Pending approval queue sorted by risk and time.
-- Frank chat/alert panel.
-- Recent transactions.
+- revenue snapshot
+- money-in status
+- mismatch alerts
+- outgoing approval queue
+- recent transactions/events
+- Frank panel
 
-### Pending Approval Row/Card
+Recommended dashboard modules:
+
+- `Revenue This Month`
+- `Pending Payment Reconciliation`
+- `Flagged Transactions`
+- `Outgoing Requests Awaiting Decision`
+- `Recent Activity`
+- `Ask Frank`
+
+### Sales Flow Screens
+
+Must support:
+
+- create `inventory_sale`
+- create `service_sale`
+- create `manual_sale`
+- show expected amount
+- show payment method expectation
+- show sale status
+
+For `inventory_sale`, the UI must make stock linkage obvious.
+
+### Inventory Views
 
 Must show:
 
-- Request title/reason.
-- Request type.
-- Department.
-- Submitter.
-- Amount in NGN.
-- Vendor/employee recipient.
-- Trust Score and concern level.
-- Top two flags.
-- Time submitted.
-- Status.
-- View details action.
+- product name
+- SKU
+- quantity on hand
+- low-stock signal
+- recent stock movement
 
-Do not approve or reject directly from the row in MVP.
+Do not turn inventory into a full warehouse UI.
 
-### Request Detail
+### Mismatch / Reconciliation View
 
 Must show:
 
-- Header summary: amount, type, department, status, Trust Score.
-- Evidence preview.
-- Submitted fields.
-- Extracted fields.
-- Squad account lookup result.
-- Rule score breakdown.
-- Flags and recommendation.
-- Recipient details.
-- Vendor or employee history.
-- Budget context.
-- Timeline/audit trail.
-- Admin actions where authorized.
+- sale summary
+- expected amount
+- actual payment status
+- stock effect if inventory-backed
+- why the record is flagged
+- Frank explanation block
 
-### Submit Request
+This is one of the most important demo surfaces.
 
-Shared route with role-specific defaults:
+### Outgoing Request Queue
 
-- Department Head defaults to Vendor Invoice Payment and can choose Field Cash Request.
-- Field Employee only sees Field Cash Request.
-- Use a segmented control for request type where the role allows both.
-- File upload must support mobile camera/gallery.
+Must show:
+
+- request type
+- submitter
+- department
+- amount
+- status
+- risk score
+- top flag(s)
+- time submitted
+
+### Outgoing Request Detail
+
+Must show:
+
+- request summary
+- amount and request type
+- supporting evidence if present
+- model/rule explanation
+- decision timeline
+- approve/reject actions for `super_admin`
+
+### Frank
+
+Frank should have three visible product shapes:
+
+- chat panel
+- inline explanation component
+- alert/feed cards
+
+The Frank chat UI should feel focused and work-oriented, not like a general-purpose assistant playground.
+
+## Demo-Critical Screens
+
+The UI should prioritize these scenes:
+
+1. clean POS sale flow
+2. inventory mismatch view
+3. vendor payment request detail
+4. staff cash request detail
+5. Frank explaining a flagged record
+6. Frank answering revenue last month
+
+If a design decision helps those scenes, it is probably correct.
 
 ## Status and Risk UI
 
-Trust Score is primary. Concern Level is secondary.
+### Sale Status Labels
 
-Labels:
+- `pending_payment`: Pending payment
+- `paid`: Paid
+- `mismatch_flagged`: Mismatch flagged
 
-- `low_concern`: Low concern
-- `needs_review`: Needs review
-- `high_concern`: High concern
-- `critical_concern`: Critical concern
+### Request Risk Labels
 
-Do not use AI verdict labels that imply approval, such as "approved with caution."
+- `low`: Low risk
+- `medium`: Needs review
+- `high`: High risk
+
+### Alert Tone
+
+- informational alerts should stay compact
+- important anomaly alerts should be visually strong
+- avoid labels that imply the AI approved a transaction
 
 ## Data Display
 
-- Amounts should display as Naira with separators: `₦750,000`.
-- Store money in kobo; display in Naira.
-- Dates should be human-friendly in UI and exact in detail/audit contexts.
-- Transaction references and IDs use Geist.
-- Tables use open rows with light dividers, not boxed cells.
+- display money in Naira with separators, for example `₦950,000`
+- store money in kobo
+- use human-friendly dates in summary views
+- use exact timestamps in audit/reconciliation views
+- show IDs and references in data font
+- tables should use open rows with light dividers, not heavy grids
 
-## Interaction Rules
+## UI Anti-Goals
 
-- Dangerous actions require confirmation or explicit reason:
-  - approve
-  - reject
-  - retry transfer
-  - unblock vendor
-- Reject and request-more-proof flows require typed messages.
-- Disabled approval due to insufficient balance must explain why and show fund-wallet action.
-- Loading states should indicate what is happening, especially for verification and transfer.
-- Error states must be specific and recoverable.
-
-## Accessibility
-
-- All interactive elements must be keyboard reachable.
-- Color cannot be the only risk indicator.
-- Use text labels with status colors.
-- Form fields require labels and validation messages.
-- Touch targets on mobile should be at least 44px high.
+- no marketing homepage styling inside the app
+- no decorative blob gradients
+- no generic chatbot-first dashboard
+- no branch-based UI
+- no fake inventory complexity
