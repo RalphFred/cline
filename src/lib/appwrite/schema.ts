@@ -187,6 +187,13 @@ const paymentRequestStatusValues = [
   "rejected",
 ] as const
 const evidenceStatusValues = ["uploaded", "verified", "flagged"] as const
+const evidenceAnalysisStatusValues = [
+  "not_required",
+  "missing",
+  "verified",
+  "needs_review",
+  "mismatch",
+] as const
 const approvalDecisionValues = ["approved", "rejected"] as const
 const evaluationTargetValues = ["incoming_payment", "payment_request"] as const
 const riskBandValues = ["low", "medium", "high", "critical"] as const
@@ -639,6 +646,21 @@ export const financeOsCollections: AppwriteCollectionDefinition[] = [
       { key: "mimeType", type: "string", size: 120, required: true },
       { key: "sizeBytes", type: "integer", min: 0, required: true },
       { key: "sha256Hash", type: "string", size: 128 },
+      {
+        key: "analysisStatus",
+        type: "enum",
+        elements: evidenceAnalysisStatusValues,
+      },
+      { key: "analysisSummary", type: "string", size: 1200 },
+      { key: "analysisConfidence", type: "float", min: 0, max: 1 },
+      { key: "extractionPayload", type: "string", size: 4000 },
+      { key: "squadLookupPayload", type: "string", size: 2000 },
+      { key: "extractedAccountNumber", type: "string", size: 20 },
+      { key: "extractedAccountName", type: "string", size: 180 },
+      { key: "extractedBankName", type: "string", size: 140 },
+      { key: "extractedAmountKobo", type: "integer", min: 0 },
+      { key: "accountMatchStatus", type: "string", size: 40 },
+      { key: "amountMatchStatus", type: "string", size: 40 },
       { key: "uploadedByMemberId", type: "string", size: 64, required: true },
       { key: "uploadedAt", type: "datetime", required: true },
       { key: "status", type: "enum", elements: evidenceStatusValues, required: true },

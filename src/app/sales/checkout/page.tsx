@@ -7,7 +7,6 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 
 import { PendingTransferDialog } from "@/components/features/sales/pending-transfer-dialog"
-import { PosSaleActions } from "@/components/features/sales/pos-sale-actions"
 import { SaleCreationForm } from "@/components/features/sales/sale-creation-form"
 import { buttonVariants } from "@/components/ui/button"
 import {
@@ -48,11 +47,66 @@ const saleStatusTone = {
     "bg-[color:color-mix(in_srgb,var(--color-critical)_12%,white)] text-[color:var(--color-critical)]",
 } as const
 
+const paymentMethodLabels = {
+  bank_transfer: "Transfer",
+  pos_payment: "POS",
+  cash: "Cash",
+  manual_record: "Manual",
+} as const
+
+const paymentMethodTone = {
+  bank_transfer:
+    "bg-[color:color-mix(in_srgb,var(--color-primary)_10%,white)] text-primary",
+  pos_payment:
+    "bg-[color:color-mix(in_srgb,var(--color-warning)_12%,white)] text-[color:var(--color-warning)]",
+  cash: "bg-[color:color-mix(in_srgb,var(--color-success)_12%,white)] text-[color:var(--color-success)]",
+  manual_record: "bg-soft text-muted-foreground",
+} as const
+
 const currencyFormatter = new Intl.NumberFormat("en-NG", {
   style: "currency",
   currency: "NGN",
   maximumFractionDigits: 0,
 })
+
+const saleDateFormatter = new Intl.DateTimeFormat("en-NG", {
+  dateStyle: "medium",
+  timeZone: "Africa/Lagos",
+})
+
+const saleTimeFormatter = new Intl.DateTimeFormat("en-NG", {
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "Africa/Lagos",
+})
+
+const saleDateKeyFormatter = new Intl.DateTimeFormat("en-NG", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "Africa/Lagos",
+})
+
+function getSaleDateKey(date: Date) {
+  const parts = saleDateKeyFormatter.formatToParts(date)
+  const year = parts.find((part) => part.type === "year")?.value ?? ""
+  const month = parts.find((part) => part.type === "month")?.value ?? ""
+  const day = parts.find((part) => part.type === "day")?.value ?? ""
+
+  return `${year}-${month}-${day}`
+}
+
+function formatRecentSaleTime(createdAt: Date, now: Date) {
+  const isSameDay = getSaleDateKey(createdAt) === getSaleDateKey(now)
+  const ageMs = now.getTime() - createdAt.getTime()
+  const isWithin24Hours = ageMs >= 0 && ageMs < 24 * 60 * 60 * 1000
+
+  if (isSameDay && isWithin24Hours) {
+    return saleTimeFormatter.format(createdAt)
+  }
+
+  return saleDateFormatter.format(createdAt)
+}
 
 export default async function SalesPage() {
   const account = await getCurrentAppwriteAccount()
@@ -78,6 +132,11 @@ export default async function SalesPage() {
       sale.paymentSourceExpected === "bank_transfer" &&
       sale.status === "pending_payment",
   )
+  const pendingTransferTotalKobo = pendingTransferSales.reduce(
+    (total, sale) => total + sale.expectedAmountKobo,
+    0,
+  )
+  const displayedPendingTransferSales = pendingTransferSales.slice(0, 6)
   const visibleRecentSales = recentSales.filter(
     (sale) =>
       !(
@@ -85,9 +144,11 @@ export default async function SalesPage() {
         sale.status === "pending_payment"
       ),
   )
+  const displayedRecentSales = visibleRecentSales.slice(0, 6)
   const lowStockCount = inventoryItems.filter(
     (item) => item.lowStockState !== "healthy",
   ).length
+  const now = new Date()
 
   return (
     <main className="min-h-screen bg-white px-4 py-4">
@@ -98,7 +159,7 @@ export default async function SalesPage() {
               <h1 className="text-2xl font-semibold">Make a sale</h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 {activeInventoryItems.length} active items · {lowStockCount} low stock ·{" "}
-                {visibleRecentSales.length} recent sales
+                {recentSales.length} recent sale{recentSales.length === 1 ? "" : "s"}
               </p>
             </div>
 
@@ -145,12 +206,13 @@ export default async function SalesPage() {
                   Pending transfers
                 </CardTitle>
                 <CardDescription>
-                  Transfer payments waiting for bank confirmation.
+                  {pendingTransferSales.length} sale{pendingTransferSales.length === 1 ? "" : "s"} waiting for bank confirmation ·{" "}
+                  {currencyFormatter.format(pendingTransferTotalKobo / 100)}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3 md:grid-cols-2">
-                  {pendingTransferSales.map((sale) => (
+                  {displayedPendingTransferSales.map((sale) => (
                     <div
                       className="flex flex-col gap-3 rounded-xl border border-border bg-soft/50 p-4 sm:flex-row sm:items-center sm:justify-between"
                       key={sale.id}
@@ -159,6 +221,9 @@ export default async function SalesPage() {
                         <div className="font-medium">{sale.title}</div>
                         <div className="mt-1 text-sm text-muted-foreground">
                           {sale.customerLabel || "Walk-in customer"}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Created {formatRecentSaleTime(new Date(sale.createdAt), now)}
                         </div>
                         <div className="mt-2 font-mono text-lg font-semibold">
                           {currencyFormatter.format(
@@ -184,6 +249,11 @@ export default async function SalesPage() {
                     </div>
                   ))}
                 </div>
+                {pendingTransferSales.length > displayedPendingTransferSales.length ? (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Showing latest {displayedPendingTransferSales.length}. Cancel or mark received to clear this queue.
+                  </p>
+                ) : null}
               </CardContent>
             </Card>
           ) : null}
@@ -192,14 +262,18 @@ export default async function SalesPage() {
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2">
                 <BanknoteArrowUp data-icon="inline-start" />
-                Recent sales
+                Completed and POS sales
               </CardTitle>
-              <CardDescription>Payments to confirm or review.</CardDescription>
+              <CardDescription>
+                Sales that have moved past pending transfer collection.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {visibleRecentSales.length === 0 ? (
+              {displayedRecentSales.length === 0 ? (
                 <div className="border border-dashed border-border bg-soft/50 px-4 py-5 text-sm text-muted-foreground">
-                  No POS or completed sales yet.
+                  {pendingTransferSales.length > 0
+                    ? "No completed sale yet. The current sales are still pending transfer confirmation above."
+                    : "No sales have been created yet."}
                 </div>
               ) : (
                 <div className="overflow-x-auto rounded-xl border border-border">
@@ -207,43 +281,42 @@ export default async function SalesPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Sale</TableHead>
-                        <TableHead>Customer</TableHead>
+                        <TableHead>Time</TableHead>
                         <TableHead>Amount</TableHead>
-                        <TableHead>Method</TableHead>
+                        <TableHead>Payment</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Payment state</TableHead>
-                        <TableHead className="min-w-[320px]">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {visibleRecentSales.map((sale) => {
-                        const paymentState = sale.posRequestStatus
-                          ? `POS: ${sale.posRequestStatus.replaceAll("_", " ")}`
-                          : sale.paymentSourceExpected === "bank_transfer" &&
-                              sale.status === "pending_payment"
-                            ? "Waiting for exact transfer"
-                            : sale.status === "paid"
-                              ? "Completed"
-                              : "Pending"
+                      {displayedRecentSales.map((sale) => {
+                        const createdAt = new Date(sale.createdAt)
+                        const timeDisplay = formatRecentSaleTime(createdAt, now)
 
                         return (
                           <TableRow key={sale.id}>
-                            <TableCell>
+                            <TableCell className="min-w-[220px]">
                               <div className="font-medium">{sale.title}</div>
                               <div className="mt-1 text-xs text-muted-foreground">
                                 {saleTypeLabels[sale.saleType]}
                               </div>
                             </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {sale.customerLabel || "Walk-in customer"}
+                            <TableCell className="min-w-[130px] font-medium">
+                              {timeDisplay}
                             </TableCell>
                             <TableCell className="font-mono font-semibold">
                               {currencyFormatter.format(
                                 sale.expectedAmountKobo / 100,
                               )}
                             </TableCell>
-                            <TableCell className="capitalize text-muted-foreground">
-                              {sale.paymentSourceExpected.replaceAll("_", " ")}
+                            <TableCell>
+                              <span
+                                className={cn(
+                                  "inline-flex rounded-full px-3 py-1 text-xs font-semibold",
+                                  paymentMethodTone[sale.paymentSourceExpected],
+                                )}
+                              >
+                                {paymentMethodLabels[sale.paymentSourceExpected]}
+                              </span>
                             </TableCell>
                             <TableCell>
                               <span
@@ -258,23 +331,6 @@ export default async function SalesPage() {
                                     ? "Paid"
                                     : "Flagged"}
                               </span>
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              <div>{paymentState}</div>
-                              {sale.actualAmountKobo ? (
-                                <div className="mt-1 font-mono text-xs">
-                                  Actual:{" "}
-                                  {currencyFormatter.format(
-                                    sale.actualAmountKobo / 100,
-                                  )}
-                                </div>
-                              ) : null}
-                            </TableCell>
-                            <TableCell>
-                                <PosSaleActions
-                                  sale={sale}
-                                  virtualAccount={staticVirtualAccount}
-                                />
                             </TableCell>
                           </TableRow>
                         )

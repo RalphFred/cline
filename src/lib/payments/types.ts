@@ -26,6 +26,18 @@ export type PaymentRequestEvidenceSummary = {
   id: string
   fileName: string
   fileType: string
+  fileUrl?: string
+  isImage: boolean
+  sizeBytes: number
+  analysisStatus?: string
+  analysisSummary?: string
+  analysisConfidence?: number
+  extractedAccountNumber?: string
+  extractedAccountName?: string
+  extractedBankName?: string
+  extractedAmountKobo?: number
+  accountMatchStatus?: string
+  amountMatchStatus?: string
   uploadedAt: string
   uploadedByMemberId: string
   status: string

@@ -309,6 +309,11 @@ Important fields:
 - `fileHash`
 - `fileType`
 - `purpose`: `invoice`, `receipt`, `proof`, `other`
+- `analysisStatus`: `verified`, `needs_review`, `mismatch`, or related evidence-analysis state
+- `analysisSummary`
+- `analysisConfidence`
+- extracted payable fields: `accountNumber`, `accountName`, `bankName`, `amount`
+- Squad account lookup payload/status when available
 - `uploadedBy`
 - `createdAt`
 
@@ -346,6 +351,7 @@ Rules:
 
 - model output informs but does not decide
 - deterministic rules and model scores should both be preserved
+- invoice OCR/account-lookup results are evidence inputs, not final approval decisions
 
 ### Model Score
 

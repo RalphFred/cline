@@ -375,14 +375,76 @@ Update this file after every meaningful implementation change.
   - normalized account display data for admin and sales transfer surfaces
 - Replaced hardcoded sales transfer bank details with the shared Cline/Squad static virtual account.
 - Hardened the Squad webhook route to accept virtual-account webhook identifiers and the `x-squad-signature` header while preserving idempotent event storage.
+- Started the lightweight model-training slice by adding:
+  - a TypeScript synthetic training-data generator for Nigerian SME outgoing request scenarios
+  - a codebase-native GBDT risk model artifact for request risk scoring
+  - an Isolation Forest-style anomaly artifact for unusual request detection
+  - versioned generated artifacts under `src/lib/ml/artifacts`
+  - a generated training dataset snapshot under `src/lib/ml/datasets`
+  - `pnpm ml:train-demo` for repeatable demo model training runs
+- Wired outgoing request risk evaluation to persist separate trained-model scores for:
+  - `demo-gbdt-risk`
+  - `demo-isolation-forest-anomaly`
+- Preserved deterministic rule outputs as first-class review evidence while blending the trained risk score into the displayed Super Admin risk evaluation.
+- Started the Frank implementation slice by adding:
+  - grounded server-side Frank query tools for revenue, flagged transactions, pending requests, request risk explanation, and system summary
+  - persisted Frank threads and messages in the existing Appwrite `frank-threads` and `frank-messages` collections
+  - `/api/frank/chat` for Super Admin-only Frank questions
+  - Gemini response generation when `GEMINI_API_KEY` is configured
+  - deterministic answer fallback when Gemini is not configured or unavailable
+  - a live Ask Frank panel on `/admin/activity`
+- Kept Frank constrained to structured tool results so he can explain records and answer business questions without inventing financial facts or making approval decisions.
+- Cleaned `/admin/activity` after browser review by removing the internal-facing System Checks panel, replacing loose audit cards with one operating timeline table, and keeping page copy user-facing instead of provider/framework-facing.
+- Tightened `/admin/activity` again so the table shows one latest row per outgoing request and money-in activity no longer repeats outgoing request audit events.
+- Verified the configured Gemini key reaches Google, but the current Gemini call returns quota exhaustion for `gemini-2.0-flash`; Frank now labels model failures as fallback instead of implying Gemini answered.
+- Added unsupported-question handling so Frank does not answer product-ranking questions with unrelated revenue data.
+- Removed the `/admin/activity` Review Queue side card so the right rail focuses on Frank only.
+- Added request-type Frank tooling so airtime/data, utility, vendor, and staff-cash questions route to outgoing request records instead of unrelated revenue data.
+- Confirmed the updated Gemini key returns a successful `OK` response and restarted the Next dev server so the running app reloads the new key.
+- Removed suggested-question chips from the Frank panel so the chat is a plain conversation input without extra prompt clutter.
+- Removed model/provider mode badges from the Frank panel so Gemini remains an implementation detail, not user-facing UI.
+- Added a best-selling product Frank query tool over sales and sale-line records so product questions run a real server-side database query before Frank answers.
+- Reduced persisted Frank message metadata to tool names only so broader query payloads do not overflow the message metadata field.
+- Added server-side invoice evidence analysis for outgoing requests:
+  - file SHA-256 hashing for duplicate evidence hints
+  - Gemini-backed invoice OCR/document extraction as the current in-app fallback
+  - Squad `/payout/account/lookup` account-name verification when bank code and live credentials are available
+  - deterministic comparison of extracted account, account name, vendor name, and invoice amount against the request/vendor context
+  - persisted extraction and Squad lookup metadata on `request-evidence`
+  - visible OCR/account review summaries in the Super Admin evidence panel
+- Expanded payment-request risk analysis so invoice OCR, Squad account lookup, amount mismatch, vendor-name mismatch, and duplicate evidence signals become stored rule results and influence the final blended risk score.
+- Updated the Appwrite schema registry and synced the live schema with the new request-evidence analysis fields.
+- Updated the AI architecture story to include the target document stack:
+  - PaddleOCR for noisy invoice/receipt/POS-slip OCR
+  - LayoutLMv3 for document understanding
+  - all-MiniLM-L6-v2 for lightweight transaction semantics
+  - Isolation Forest plus XGBoost/LightGBM for anomaly and risk scoring
+- Clarified the Sales checkout state when transfer sales are pending:
+  - pending bank-transfer sales now count in the checkout page summary
+  - the pending transfer panel shows the queue count, total value, and creation time per sale
+  - the completed/POS empty state now explains that sales exist but are awaiting transfer confirmation
+  - the recent sales query loads enough rows for completed sales to appear even when the latest rows are pending transfers
+- Investigated the duplicated pending-transfer queue and confirmed the rows are real Appwrite sale records created by repeated `sale_created` mutations from the Sales Operator demo member, not a rendering/query duplication.
+- Added a server-side duplicate guard for bank-transfer checkout creation so a same-title, same-amount, same-customer pending transfer by the same Sales Operator returns the existing pending transfer instead of creating another sale or reducing inventory again.
+- Cleaned the stale demo pending-transfer records from Appwrite:
+  - deleted 43 pending bank-transfer sale records
+  - restored 43 inventory units from the associated sale lines before deletion
+  - wrote cleanup audit events for the removed sale records
+  - confirmed 0 pending bank-transfer sales remain in the demo workspace
+- Changed Sales checkout defaults so the form starts empty:
+  - no inventory item is preselected
+  - no payment method is preselected
+  - receipt preview starts with no items and zero total
+  - submit remains disabled until the user explicitly adds/selects an item and chooses a payment method
 
 ## Next Up
 
-1. Build a dedicated inventory mismatch investigation view beyond manual missing-payment flagging.
-2. Add Frank explanations over stored reconciliation events, alerts, audit events, sale/payment facts, and outgoing request facts.
+1. Build dedicated inline Frank explanation blocks for money-in mismatch details and payment-request detail pages.
+2. Build a dedicated inventory mismatch investigation view beyond manual missing-payment flagging.
 3. Tighten admin request detail routing if the demo needs shareable request URLs in addition to the dashboard workspace.
-4. Prepare lightweight ML training artifacts and integration path.
-5. Add visual/browser verification coverage for the live demo paths.
+4. Replace the Gemini fallback extractor with a deployed PaddleOCR/LayoutLMv3 document-understanding service when the demo needs the full production AI story.
+5. Replace the codebase-native GBDT artifact with a Colab-trained XGBoost or LightGBM export if the final demo needs to claim a specific library family.
+6. Add visual/browser verification coverage for the live demo paths.
 
 ## Open Questions
 
@@ -395,7 +457,7 @@ Update this file after every meaningful implementation change.
 7. Whether the Sales Operator checkout UI should expose `service_sale` and `manual_sale` now, or keep the first demo counter focused on inventory-backed sales.
 8. Whether the Field Employee `Proof` tab should remain a persistent nav item or become contextual only from approved request details.
 9. Which outgoing request types must trigger mandatory post-payout proof versus optional supporting evidence before approval.
-10. Whether vendor bank details should return for admin-side payout execution while staying hidden from the Field Employee first-pass invoice form.
+10. Whether the production document-understanding layer should be hosted as a Python service, batch notebook export, or external inference endpoint.
 
 ## Architecture Decisions
 

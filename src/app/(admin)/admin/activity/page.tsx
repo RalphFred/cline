@@ -1,13 +1,3 @@
-import {
-  Activity,
-  BadgeCheck,
-  Brain,
-  CircleDot,
-  ClipboardCheck,
-  ReceiptText,
-  ShieldAlert,
-} from "lucide-react"
-
 import { AdminShell } from "@/components/features/admin/admin-shell"
 import {
   EmptyPanel,
@@ -17,6 +7,7 @@ import {
   formatCurrency,
   riskBadgeClass,
 } from "@/components/features/admin/admin-format"
+import { FrankChatPanel } from "@/components/features/frank/frank-chat-panel"
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
@@ -25,9 +16,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { getSuperAdminWorkspace } from "@/lib/admin/server"
 import { getLiveAdminMoneyInOverview } from "@/lib/demo/server"
-import { frankHighlights } from "@/lib/demo/workspace"
 import { listPaymentRequestSummaries } from "@/lib/payments/service"
 
 export default async function AdminActivityPage() {
@@ -40,16 +38,38 @@ export default async function AdminActivityPage() {
       limit: 10,
     }),
   ])
-  const requestAudit = liveOutgoingRequests.flatMap((request) =>
-    request.auditTrail.slice(0, 2).map((event) => ({
-      id: `${request.id}-${event.occurredAt}-${event.action}`,
+  const requestAudit = liveOutgoingRequests.map((request) => {
+    const latestEvent = request.auditTrail[0]
+
+    return {
+      id: `${request.id}-${latestEvent?.occurredAt ?? request.submittedAt}`,
+      area: "Requests" as const,
       title: request.title,
-      summary: event.summary,
-      occurredAt: event.occurredAt,
+      summary:
+        latestEvent?.summary ??
+        `${request.title} is awaiting Super Admin review.`,
+      occurredAt: latestEvent?.occurredAt ?? request.submittedAt,
       riskBand: request.riskBand,
       amountKobo: request.amountKobo,
-    })),
-  )
+      status:
+        request.status === "approved"
+          ? "Approved"
+          : request.status === "rejected"
+            ? "Rejected"
+            : "Review",
+    }
+  })
+  const moneyInAudit = liveMoneyIn.recentActivity.map((summary, index) => ({
+    id: `money-in-${index}`,
+    area: "Money in" as const,
+    title: "Payment activity",
+    summary,
+    occurredAt: "Recent",
+    riskBand: "low" as const,
+    amountKobo: null,
+    status: "Recorded",
+  }))
+  const activityRows = [...requestAudit, ...moneyInAudit]
 
   return (
     <AdminShell
@@ -58,74 +78,83 @@ export default async function AdminActivityPage() {
       staticVirtualAccount={staticVirtualAccount}
     >
       <PageHeading
-        description="A readable audit view for what happened across sales, reconciliation, outgoing requests, Frank signals, and payout follow-up."
-        eyebrow="Audit"
+        description="Sales, payments, requests, and decisions in one operating timeline."
+        eyebrow="Activity"
         title="Activity"
       />
 
-      <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="grid gap-5">
+      <section className="mt-5 grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-w-0">
           <Card className="shadow-none">
             <CardHeader className="pb-3">
-              <CardTitle>Money-in activity</CardTitle>
+              <CardTitle>Operating timeline</CardTitle>
               <CardDescription>
-                Live reconciliation events from the sales and payment flow.
+                Recent movement across money in and outgoing requests.
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-2">
-              {liveMoneyIn.recentActivity.length > 0 ? (
-                liveMoneyIn.recentActivity.map((item, index) => (
-                  <div
-                    className="flex items-start gap-3 rounded-lg border border-border bg-background px-4 py-3 text-sm"
-                    key={`${item}-${index}`}
-                  >
-                    <ReceiptText className="mt-0.5 size-4 text-primary" />
-                    <span className="leading-6 text-muted-foreground">
-                      {item}
-                    </span>
-                  </div>
-                ))
+            <CardContent>
+              {activityRows.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[120px]">Time</TableHead>
+                      <TableHead className="w-[120px]">Area</TableHead>
+                      <TableHead>Event</TableHead>
+                      <TableHead className="w-[130px] text-right">Amount</TableHead>
+                      <TableHead className="w-[110px] text-right">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {activityRows.map((event) => (
+                      <TableRow key={event.id}>
+                        <TableCell className="text-muted-foreground">
+                          {event.occurredAt}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              event.area === "Money in"
+                                ? "bg-secondary text-primary hover:bg-secondary"
+                                : "bg-background text-foreground hover:bg-background"
+                            }
+                            variant="secondary"
+                          >
+                            {event.area}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="min-w-[360px] whitespace-normal py-3">
+                          <div className="font-medium">{event.title}</div>
+                          <div className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+                            {event.summary}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {event.amountKobo === null
+                            ? "—"
+                            : formatCurrency(event.amountKobo)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge
+                            className={
+                              event.status === "Review"
+                                ? riskBadgeClass(event.riskBand)
+                                : event.status === "Approved"
+                                  ? "bg-success text-white hover:bg-success"
+                                  : event.status === "Rejected"
+                                    ? "bg-destructive text-white hover:bg-destructive"
+                                    : "bg-secondary text-primary hover:bg-secondary"
+                            }
+                          >
+                            {event.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               ) : (
                 <EmptyPanel>
-                  Create and confirm a POS sale to populate the live audit trail.
-                </EmptyPanel>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-none">
-            <CardHeader className="pb-3">
-              <CardTitle>Outgoing request audit</CardTitle>
-              <CardDescription>
-                Submission, decision, payout, and proof events.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              {requestAudit.length > 0 ? (
-                requestAudit.map((event) => (
-                  <div
-                    className="rounded-lg border border-border bg-background px-4 py-3"
-                    key={event.id}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="truncate font-medium">{event.title}</div>
-                        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                          {event.summary}
-                        </p>
-                      </div>
-                      <Badge className={riskBadgeClass(event.riskBand)}>
-                        {formatCurrency(event.amountKobo)}
-                      </Badge>
-                    </div>
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      {event.occurredAt}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <EmptyPanel>
-                  Field Employee requests will appear here once submitted.
+                  Activity will appear here after sales, payments, or requests move.
                 </EmptyPanel>
               )}
             </CardContent>
@@ -133,94 +162,7 @@ export default async function AdminActivityPage() {
         </div>
 
         <aside className="grid content-start gap-5">
-          <Card className="shadow-none">
-            <CardHeader className="pb-3">
-              <CardTitle>Frank signals</CardTitle>
-              <CardDescription>
-                Finance explanations surfaced for the admin.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              {frankHighlights.map((item) => (
-                <div
-                  className="flex items-start gap-3 rounded-lg border border-border bg-background px-4 py-3 text-sm"
-                  key={item}
-                >
-                  <Brain className="mt-0.5 size-4 text-primary" />
-                  <span className="leading-6 text-muted-foreground">{item}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-none">
-            <CardHeader className="pb-3">
-              <CardTitle>System checks</CardTitle>
-              <CardDescription>
-                The surfaces that keep the demo coherent.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              {[
-                {
-                  label: "Appwrite data",
-                  note: "Role, sale, request, proof, and audit records are read live.",
-                  icon: BadgeCheck,
-                },
-                {
-                  label: "Squad boundary",
-                  note: "Transfers and webhook capture are available through the service layer.",
-                  icon: ShieldAlert,
-                },
-                {
-                  label: "Admin routes",
-                  note: "Overview, money-in, approvals, and activity now have separate workspaces.",
-                  icon: Activity,
-                },
-              ].map((item) => {
-                const Icon = item.icon
-
-                return (
-                  <div
-                    className="flex items-start gap-3 rounded-lg border border-border bg-background px-4 py-3"
-                    key={item.label}
-                  >
-                    <Icon className="mt-0.5 size-4 text-primary" />
-                    <div>
-                      <div className="font-medium">{item.label}</div>
-                      <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                        {item.note}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-none">
-            <CardHeader className="pb-3">
-              <CardTitle>Queue summary</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              <div className="flex items-center justify-between rounded-lg bg-background px-4 py-3">
-                <div className="flex items-center gap-2 font-medium">
-                  <ClipboardCheck className="size-4 text-primary" />
-                  Outgoing requests
-                </div>
-                <Badge variant="secondary">{liveOutgoingRequests.length}</Badge>
-              </div>
-              <div className="flex items-center justify-between rounded-lg bg-background px-4 py-3">
-                <div className="flex items-center gap-2 font-medium">
-                  <CircleDot className="size-4 text-primary" />
-                  Money-in events
-                </div>
-                <Badge variant="secondary">
-                  {liveMoneyIn.recentActivity.length}
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
+          <FrankChatPanel />
         </aside>
       </section>
     </AdminShell>

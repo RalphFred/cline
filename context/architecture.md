@@ -11,6 +11,7 @@
 | File Storage | Appwrite Storage | Supporting files, proofs, generated training metadata if needed |
 | Payment Rails | Squad APIs | POS collection, bank transfer events, payout flows |
 | AI Reasoning | Gemini API | Frank explanations and natural-language responses |
+| Document Understanding | PaddleOCR + LayoutLMv3 target stack, Gemini fallback in-app | Evidence OCR, invoice field extraction, and payable-account understanding |
 | ML Training | Google Colab / Hugging Face notebook workflow | Pre-demo training for lightweight anomaly/risk models |
 | Email | Resend | Alerts and workflow notifications |
 | Validation | Zod | Input and model output validation |
@@ -209,6 +210,9 @@ Gemini should answer from structured query outputs and stored evaluation artifac
 
 For this phase, the AI training story includes:
 
+- `PaddleOCR` for noisy invoice, receipt, POS-slip, and bill text extraction
+- `LayoutLMv3` for pretrained document understanding over semi-structured financial evidence
+- `all-MiniLM-L6-v2` for lightweight purpose/expense semantic classification
 - `Isolation Forest` for anomaly detection
 - `XGBoost` or `LightGBM` for risk scoring
 
@@ -218,9 +222,14 @@ Training setup:
 - based on synthetic but realistic scenario data
 - artifacts saved and referenced by the app/demo
 - no live retraining during the demo
+- the Next.js app keeps a server-side extraction boundary so Gemini can act as a demo fallback until a PaddleOCR/LayoutLM service is deployed
 
 Model outputs:
 
+- extracted evidence fields
+- document confidence
+- verified account-name match signals
+- transaction category hints
 - anomaly score
 - risk score
 - optional risk band
@@ -245,6 +254,10 @@ Likely input features include:
 - payment recorded or not
 - request frequency
 - duplicate evidence hints
+- invoice account number and account name match
+- Squad account lookup result
+- OCR confidence
+- extracted invoice amount versus requested amount
 - timing gaps
 - actor/role behavior markers
 
@@ -258,6 +271,10 @@ Examples:
 - inventory reduced without corresponding payment
 - payment amount differs from expected sale amount
 - vendor request lacks supporting file
+- vendor invoice OCR cannot find payable account details
+- invoice account differs from known vendor account
+- Squad account lookup name conflicts with invoice or vendor name
+- extracted invoice total differs from requested payout amount
 - repeated staff cash request frequency spike
 
 ### Frank Query Tools

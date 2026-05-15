@@ -33,6 +33,18 @@ export function riskBadgeClass(riskBand: PaymentRequestSummary["riskBand"]) {
   return "bg-success text-white hover:bg-success"
 }
 
+export function statusBadgeClass(status: PaymentRequestSummary["status"]) {
+  if (status === "approved") {
+    return "bg-success text-white hover:bg-success"
+  }
+
+  if (status === "rejected") {
+    return "bg-critical text-white hover:bg-critical"
+  }
+
+  return "bg-secondary text-secondary-foreground hover:bg-secondary"
+}
+
 export function transferBadgeClass(
   status?: PaymentRequestSummary["transferStatus"],
 ) {

@@ -20,6 +20,20 @@ export type CreateSaleActionState = {
     expiresAt?: string | null
     reference?: string | null
   }
+  receipt?: {
+    saleId: string
+    title: string
+    customerLabel?: string | null
+    amountKobo: number
+    issuedAtIso: string
+    paymentMethod: "cash"
+    lines: Array<{
+      label: string
+      quantity: number
+      unitPriceKobo: number
+      lineTotalKobo: number
+    }>
+  }
 }
 
 export type SaleFlowActionState = CreateSaleActionState

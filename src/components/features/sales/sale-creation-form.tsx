@@ -17,6 +17,10 @@ import { toast } from "sonner"
 import { createSaleAction } from "@/app/sales/checkout/actions"
 import { initialCreateSaleActionState } from "@/app/sales/checkout/action-state"
 import {
+  CashReceiptDialog,
+  type CashReceipt,
+} from "@/components/features/sales/cash-receipt-dialog"
+import {
   PendingTransferDialog,
   type PendingTransferDialogSale,
 } from "@/components/features/sales/pending-transfer-dialog"
@@ -77,15 +81,11 @@ function onlyDigits(value: string) {
   return value.replace(/\D/g, "")
 }
 
-function createDefaultInventoryLine(
-  inventoryItems: DemoInventoryItemSummary[],
-): InventoryLineState {
-  const firstItem = inventoryItems[0]
-
+function createEmptyInventoryLine(): InventoryLineState {
   return {
-    inventoryItemId: firstItem?.id ?? "",
+    inventoryItemId: "",
     quantity: 1,
-    unitPriceKobo: firstItem?.unitPriceKobo ?? 0,
+    unitPriceKobo: 0,
   }
 }
 
@@ -94,7 +94,7 @@ function SubmitButton({
   paymentSource,
 }: {
   disabled: boolean
-  paymentSource: PaymentOption["value"]
+  paymentSource: PaymentOption["value"] | ""
 }) {
   const { pending } = useFormStatus()
 
@@ -111,7 +111,9 @@ function SubmitButton({
           ? "Create sale & request POS"
           : paymentSource === "bank_transfer"
             ? "Create pending transfer sale"
-          : "Create sale & receipt"}
+            : paymentSource === "cash"
+              ? "Create sale & receipt"
+              : "Choose payment method"}
     </Button>
   )
 }
@@ -205,15 +207,14 @@ export function SaleCreationForm({
     createSaleAction,
     initialCreateSaleActionState,
   )
-  const [customerLabel, setCustomerLabel] = useState("")
   const [paymentSourceExpected, setPaymentSourceExpected] =
-    useState<PaymentOption["value"]>("cash")
+    useState<PaymentOption["value"] | "">("")
   const [pendingTransferSale, setPendingTransferSale] =
     useState<PendingTransferDialogSale | null>(null)
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false)
-  const [inventoryLines, setInventoryLines] = useState<InventoryLineState[]>([
-    createDefaultInventoryLine(inventoryItems),
-  ])
+  const [cashReceipt, setCashReceipt] = useState<CashReceipt | null>(null)
+  const [isCashReceiptOpen, setIsCashReceiptOpen] = useState(false)
+  const [inventoryLines, setInventoryLines] = useState<InventoryLineState[]>([])
 
   const inventoryItemsById = useMemo(
     () => new Map(inventoryItems.map((item) => [item.id, item])),
@@ -235,6 +236,7 @@ export function SaleCreationForm({
   )
   const hasInvalidLine =
     inventoryItems.length === 0 ||
+    inventoryLines.length === 0 ||
     receiptLines.some(
       (line) => !line.inventoryItemId || line.quantity < 1 || line.isOverStock,
     )
@@ -246,7 +248,7 @@ export function SaleCreationForm({
   const payload = JSON.stringify({
     saleType: "inventory_sale",
     title: saleTitle,
-    customerLabel,
+    customerLabel: "",
     paymentSourceExpected,
     notes: "",
     lines: inventoryLines,
@@ -271,9 +273,13 @@ export function SaleCreationForm({
           setIsTransferDialogOpen(true)
         }
 
-        setCustomerLabel("")
-        setPaymentSourceExpected("cash")
-        setInventoryLines([createDefaultInventoryLine(inventoryItems)])
+        if (state.receipt) {
+          setCashReceipt(state.receipt)
+          setIsCashReceiptOpen(true)
+        }
+
+        setPaymentSourceExpected("")
+        setInventoryLines([])
       }, 0)
 
       return () => window.clearTimeout(resetTimer)
@@ -293,17 +299,6 @@ export function SaleCreationForm({
         <input name="payload" type="hidden" value={payload} />
 
       <div className="flex flex-col gap-5">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="customer-label">Customer</Label>
-          <Input
-            className="min-h-12 text-base"
-            id="customer-label"
-            onChange={(event) => setCustomerLabel(event.target.value)}
-            placeholder="Walk-in customer"
-            value={customerLabel}
-          />
-        </div>
-
         <div className="flex flex-col gap-4 rounded-xl border border-border bg-white px-4 py-4">
           <div>
             <div className="font-medium">Items sold</div>
@@ -318,6 +313,12 @@ export function SaleCreationForm({
             </div>
           ) : (
             <div className="flex flex-col gap-3">
+              {inventoryLines.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border bg-background px-4 py-6 text-sm text-muted-foreground">
+                  Select an item to start this checkout.
+                </div>
+              ) : null}
+
               {inventoryLines.map((line, index) => {
                 const selectedItem = inventoryItemsById.get(line.inventoryItemId)
                 const lineTotalKobo = line.quantity * line.unitPriceKobo
@@ -437,7 +438,7 @@ export function SaleCreationForm({
               onClick={() =>
                 setInventoryLines((currentLines) => [
                   ...currentLines,
-                  createDefaultInventoryLine(inventoryItems),
+                  createEmptyInventoryLine(),
                 ])
               }
               size="sm"
@@ -494,11 +495,19 @@ export function SaleCreationForm({
               ? "Cash sale will be marked paid."
               : paymentSourceExpected === "bank_transfer"
                 ? "Transfer sale stays pending until the exact incoming transfer is matched."
-                : "Squad POS request is created with the sale."}
+                : paymentSourceExpected === "pos_payment"
+                  ? "Squad POS request is created with the sale."
+                  : "Choose items and a payment method to prepare this sale."}
           </p>
         </div>
 
         <div className="flex flex-col gap-3 border-y border-border py-4">
+          {receiptLines.length === 0 ? (
+            <div className="text-sm text-muted-foreground">
+              No items selected.
+            </div>
+          ) : null}
+
           {receiptLines.map((line, index) => (
             <div className="flex items-start justify-between gap-3 text-sm" key={index}>
               <div>
@@ -540,7 +549,7 @@ export function SaleCreationForm({
         ) : null}
 
         <SubmitButton
-          disabled={hasInvalidLine || totalKobo <= 0}
+          disabled={hasInvalidLine || totalKobo <= 0 || !paymentSourceExpected}
           paymentSource={paymentSourceExpected}
         />
       </aside>
@@ -553,6 +562,14 @@ export function SaleCreationForm({
           open={isTransferDialogOpen}
           sale={pendingTransferSale}
           virtualAccount={virtualAccount}
+        />
+      ) : null}
+
+      {cashReceipt ? (
+        <CashReceiptDialog
+          onOpenChange={setIsCashReceiptOpen}
+          open={isCashReceiptOpen}
+          receipt={cashReceipt}
         />
       ) : null}
     </>

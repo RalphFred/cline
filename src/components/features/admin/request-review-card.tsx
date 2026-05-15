@@ -1,29 +1,27 @@
 import {
   BanknoteArrowDown,
-  CheckCircle2,
   FileCheck2,
   FileText,
   Gauge,
   RefreshCw,
-  XCircle,
 } from "lucide-react"
 
 import {
   acceptPaymentRequestProofAction,
-  approvePaymentRequestAction,
   flagPaymentRequestProofAction,
-  rejectPaymentRequestAction,
   requeryPaymentRequestTransferAction,
 } from "@/app/(admin)/admin/actions"
 import {
   formatCurrency,
   requestTypeLabels,
   riskBadgeClass,
+  statusBadgeClass,
   transferBadgeClass,
 } from "@/components/features/admin/admin-format"
+import { PaymentRequestDecisionForm } from "@/components/features/admin/payment-request-decision-form"
+import { EvidencePreview } from "@/components/features/payments/evidence-preview"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import type { PaymentRequestSummary } from "@/lib/payments/types"
 import { cn } from "@/lib/utils"
 
@@ -111,6 +109,11 @@ function ProofPanel({ request }: { request: PaymentRequestSummary }) {
         </div>
       </div>
       {latestProof ? (
+        <div className="mt-4">
+          <EvidencePreview evidence={latestProof} />
+        </div>
+      ) : null}
+      {latestProof ? (
         <div className="mt-4 grid gap-2 lg:grid-cols-2">
           <form action={acceptPaymentRequestProofAction}>
             <input name="requestId" type="hidden" value={request.id} />
@@ -143,7 +146,7 @@ export function RequestReviewCard({
 
   return (
     <article className="rounded-lg border border-border bg-card">
-      <div className="grid gap-0 2xl:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 px-5 py-5">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline">{requestTypeLabels[request.requestType]}</Badge>
@@ -152,7 +155,9 @@ export function RequestReviewCard({
                 ? "Needs review"
                 : `${request.riskBand} risk`}
             </Badge>
-            <Badge variant="secondary">{request.status}</Badge>
+            <Badge className={statusBadgeClass(request.status)}>
+              {request.status}
+            </Badge>
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_190px]">
@@ -215,33 +220,23 @@ export function RequestReviewCard({
               ) : null}
             </section>
 
-            {!compact ? (
-              <section className="rounded-lg border border-border bg-background px-4 py-4">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <FileText className="size-4" />
-                  Evidence
+            <section className="rounded-lg border border-border bg-background px-4 py-4">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <FileText className="size-4" />
+                Evidence
+              </div>
+              {request.evidence.length > 0 ? (
+                <div className="mt-3 grid gap-2">
+                  {request.evidence.map((item) => (
+                    <EvidencePreview compact={compact} evidence={item} key={item.id} />
+                  ))}
                 </div>
-                {request.evidence.length > 0 ? (
-                  <div className="mt-3 grid gap-2">
-                    {request.evidence.map((item) => (
-                      <div
-                        className="rounded-lg bg-secondary/55 px-3 py-3 text-sm"
-                        key={item.id}
-                      >
-                        <div className="font-medium">{item.fileName}</div>
-                        <div className="mt-1 text-muted-foreground">
-                          {item.fileType} - {item.uploadedAt} - {item.status}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    No evidence has been attached yet.
-                  </p>
-                )}
-              </section>
-            ) : null}
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  No evidence has been attached yet.
+                </p>
+              )}
+            </section>
           </div>
 
           <div className="mt-4 grid gap-4">
@@ -250,78 +245,21 @@ export function RequestReviewCard({
           </div>
         </div>
 
-        <aside className="border-t border-border bg-secondary/35 px-5 py-5 2xl:border-l 2xl:border-t-0">
-          <div className="text-sm font-semibold">Decision</div>
-          {request.status === "submitted" ? (
-            <div className="mt-4 grid gap-3">
-              <form action={approvePaymentRequestAction}>
-                <input name="requestId" type="hidden" value={request.id} />
-                <Textarea
-                  className="min-h-20 bg-card"
-                  name="comment"
-                  placeholder="Approval note"
-                />
-                <Button className="mt-3 w-full" type="submit">
-                  <CheckCircle2 data-icon="inline-start" />
-                  Approve payout
-                </Button>
-              </form>
-              <form action={rejectPaymentRequestAction}>
-                <input name="requestId" type="hidden" value={request.id} />
-                <Textarea
-                  className="min-h-20 bg-card"
-                  name="comment"
-                  placeholder="Rejection reason"
-                />
-                <Button className="mt-3 w-full" type="submit" variant="outline">
-                  <XCircle data-icon="inline-start" />
-                  Reject
-                </Button>
-              </form>
-            </div>
-          ) : (
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              {request.decisionComment || "Decision has been recorded."}
+        <aside className="border-t border-border bg-secondary/35 px-5 py-5 xl:border-l xl:border-t-0">
+          <div className="rounded-lg border border-border bg-card px-4 py-4">
+            <div className="text-sm font-semibold">Decision</div>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Record the final Super Admin decision for this request.
             </p>
-          )}
 
-          <div className="mt-6 text-sm font-semibold">Timeline</div>
-          <div className="mt-3 grid gap-3">
-            {request.timeline.map((item) => (
-              <div className="flex items-center gap-3 text-sm" key={item.label}>
-                <span
-                  className={cn(
-                    "size-2 rounded-full",
-                    item.state === "done"
-                      ? "bg-success"
-                      : item.state === "current"
-                        ? "bg-warning"
-                        : "bg-border",
-                  )}
-                />
-                <span className="text-muted-foreground">{item.label}</span>
-              </div>
-            ))}
+            {request.status === "submitted" ? (
+              <PaymentRequestDecisionForm requestId={request.id} />
+            ) : (
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                {request.decisionComment || "Decision has been recorded."}
+              </p>
+            )}
           </div>
-
-          {request.modelScores.length > 0 ? (
-            <>
-              <div className="mt-6 text-sm font-semibold">Model output</div>
-              <div className="mt-3 grid gap-2">
-                {request.modelScores.map((score) => (
-                  <div
-                    className="flex items-center justify-between rounded-lg bg-card px-3 py-2 text-sm"
-                    key={`${score.modelName}-${score.scoreType}`}
-                  >
-                    <span className="truncate">{score.modelName}</span>
-                    <span className="font-mono font-semibold">
-                      {score.scoreValue.toFixed(2)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : null}
         </aside>
       </div>
     </article>

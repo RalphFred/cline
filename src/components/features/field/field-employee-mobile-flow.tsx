@@ -26,6 +26,7 @@ import {
   type PaymentRequestActionState,
 } from "@/app/(mobile)/mobile/actions"
 import { signOutAction } from "@/app/(auth)/sign-in/actions"
+import { EvidencePreview } from "@/components/features/payments/evidence-preview"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -69,6 +70,9 @@ const currencyFormatter = new Intl.NumberFormat("en-NG", {
   currency: "NGN",
   maximumFractionDigits: 0,
 })
+
+const maxUploadSizeBytes = 8 * 1024 * 1024
+const maxUploadSizeLabel = "8 MB"
 
 const navItems = [
   { value: "home", label: "Home", icon: Home },
@@ -149,6 +153,17 @@ function formatCurrency(amountKobo: number) {
   return currencyFormatter.format(amountKobo / 100)
 }
 
+function getFileSizeError(form: HTMLFormElement, fieldName: string, label: string) {
+  const formData = new FormData(form)
+  const file = formData.get(fieldName)
+
+  if (file instanceof File && file.size > maxUploadSizeBytes) {
+    return `${label} must be ${maxUploadSizeLabel} or smaller.`
+  }
+
+  return undefined
+}
+
 function getRequestsNeedingProof(requests: FieldRequest[]) {
   return requests.filter(
     (request) =>
@@ -203,6 +218,11 @@ function RequestCard({
             {requestTypeLabels[request.requestType]}
           </div>
         </div>
+        {request.evidence.length > 0 ? (
+          <div className="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-muted-foreground">
+            {request.evidence.length} file{request.evidence.length === 1 ? "" : "s"}
+          </div>
+        ) : null}
       </div>
     </button>
   )
@@ -502,7 +522,22 @@ export function FieldEmployeeMobileFlow({
                       </Button>
                     </div>
                   ) : (
-                    <form action={createAction} className="flex flex-col gap-5">
+                    <form
+                      action={createAction}
+                      className="flex flex-col gap-5"
+                      onSubmit={(event) => {
+                        const fileSizeError = getFileSizeError(
+                          event.currentTarget,
+                          "evidenceFile",
+                          "Evidence file",
+                        )
+
+                        if (fileSizeError) {
+                          event.preventDefault()
+                          toast.error(fileSizeError)
+                        }
+                      }}
+                    >
                       <input name="requestType" type="hidden" value={requestType} />
                       <input name="urgency" type="hidden" value={urgency} />
                       <input name="neededBy" type="hidden" value={urgency} />
@@ -665,7 +700,22 @@ export function FieldEmployeeMobileFlow({
                 </CardHeader>
                 <CardContent>
                   {proofRequests.length > 0 ? (
-                    <form action={proofAction} className="flex flex-col gap-4">
+                    <form
+                      action={proofAction}
+                      className="flex flex-col gap-4"
+                      onSubmit={(event) => {
+                        const fileSizeError = getFileSizeError(
+                          event.currentTarget,
+                          "proofFile",
+                          "Proof file",
+                        )
+
+                        if (fileSizeError) {
+                          event.preventDefault()
+                          toast.error(fileSizeError)
+                        }
+                      }}
+                    >
                       <input
                         name="requestId"
                         type="hidden"
@@ -822,6 +872,21 @@ export function FieldEmployeeMobileFlow({
                 <Separator />
 
                 <div className="flex flex-col gap-3">
+                  <div className="text-sm font-medium">Uploaded evidence</div>
+                  {selectedRequest.evidence.length > 0 ? (
+                    selectedRequest.evidence.map((item) => (
+                      <EvidencePreview compact evidence={item} key={item.id} />
+                    ))
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-border bg-background px-3 py-4 text-sm text-muted-foreground">
+                      No evidence has been attached yet.
+                    </div>
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="flex flex-col gap-3">
                   <div className="text-sm font-medium">Approval timeline</div>
                   {selectedRequest.timeline.map((item) => (
                     <div className="flex items-center gap-3" key={item.label}>
@@ -848,18 +913,6 @@ export function FieldEmployeeMobileFlow({
                     </div>
                   ))}
                 </div>
-
-                {selectedRequest.proofFileName ? (
-                  <>
-                    <Separator />
-                    <div className="rounded-lg border border-border bg-card px-3 py-3">
-                      <div className="flex items-center gap-2 text-sm font-medium">
-                        <FileCheck2 />
-                        {selectedRequest.proofFileName}
-                      </div>
-                    </div>
-                  </>
-                ) : null}
               </div>
 
               <SheetFooter>

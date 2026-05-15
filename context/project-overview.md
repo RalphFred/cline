@@ -142,11 +142,13 @@ Departments remain in the product only for money-out accountability and reportin
 ### 3. Vendor Payment Flow
 
 1. `field_employee` creates a `vendor_payment`.
-2. Optional supporting file may be attached.
-3. Deterministic rules and trained risk outputs are computed.
-4. `super_admin` approves or rejects.
-5. Squad payout flow is executed or simulated for the demo.
-6. Audit trail updates.
+2. Invoice evidence is attached.
+3. Cline extracts payable account details from the invoice evidence.
+4. Squad account lookup verifies the extracted account name when live credentials are configured.
+5. Deterministic rules and trained risk outputs are computed from request fields, invoice extraction, account verification, and evidence metadata.
+6. `super_admin` approves or rejects.
+7. Squad payout flow is executed or simulated for the demo.
+8. Audit trail updates.
 
 ### 4. Staff Cash Request Flow
 
@@ -201,6 +203,8 @@ Locked AI story:
 - Cline uses deterministic rules plus lightweight trained models.
 - Training happens before the demo, not live.
 - Training data is synthetic but realistic, generated from demo scenarios.
+- Invoice and receipt evidence uses a document-understanding layer before risk scoring.
+- The target document stack is PaddleOCR for OCR, LayoutLMv3 for invoice/receipt understanding, and all-MiniLM-L6-v2 for lightweight transaction semantics.
 - The trained models are:
   - `Isolation Forest` for anomaly detection
   - `XGBoost` or `LightGBM` for risk scoring

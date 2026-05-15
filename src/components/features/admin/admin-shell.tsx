@@ -11,7 +11,6 @@ import {
 import Link from "next/link"
 
 import { signOutAction } from "@/app/(auth)/sign-in/actions"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { demoWorkspace } from "@/lib/demo/workspace"
 import type { StaticVirtualAccount } from "@/lib/squad/virtual-accounts"
@@ -66,8 +65,6 @@ const secondaryNav = [
 
 export function AdminShell({
   active,
-  accountLabel,
-  staticVirtualAccount,
   children,
 }: {
   active: AdminNavKey
@@ -89,42 +86,6 @@ export function AdminShell({
                 {demoWorkspace.organizationName}
               </div>
             </div>
-          </div>
-
-          <div className="mt-6 rounded-lg border border-border bg-background px-3 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <Badge variant="secondary">Super Admin</Badge>
-              {staticVirtualAccount ? (
-                <Badge
-                  className={cn(
-                    staticVirtualAccount.mode === "live"
-                      ? "bg-success text-white hover:bg-success"
-                      : "bg-warning text-white hover:bg-warning",
-                  )}
-                >
-                  {staticVirtualAccount.mode}
-                </Badge>
-              ) : null}
-            </div>
-            <div className="mt-2 truncate text-sm text-muted-foreground">
-              {accountLabel}
-            </div>
-            {staticVirtualAccount ? (
-              <div className="mt-4 rounded-lg border border-border bg-card px-3 py-3">
-                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Cline account
-                </div>
-                <div className="mt-2 text-sm font-medium">
-                  {staticVirtualAccount.bankName}
-                </div>
-                <div className="mt-1 font-mono text-xl font-semibold">
-                  {staticVirtualAccount.accountNumber}
-                </div>
-                <div className="mt-1 truncate text-xs text-muted-foreground">
-                  {staticVirtualAccount.accountName}
-                </div>
-              </div>
-            ) : null}
           </div>
 
           <nav className="mt-6 grid gap-1 text-sm">
@@ -181,7 +142,7 @@ export function AdminShell({
           </form>
         </aside>
 
-        <section className="h-screen min-w-0 overflow-y-auto px-6 py-5">
+        <section className="h-screen min-w-0 overflow-y-auto bg-white px-6 py-5">
           {children}
         </section>
       </div>

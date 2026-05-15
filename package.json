@@ -5,6 +5,7 @@
   "scripts": {
     "appwrite:schema:sync": "tsx scripts/sync-appwrite-schema.ts",
     "demo:seed-inventory": "tsx scripts/seed-demo-inventory.ts",
+    "ml:train-demo": "tsx scripts/train-demo-models.ts",
     "dev": "next dev",
     "build": "next build",
     "typecheck": "tsc --noEmit",

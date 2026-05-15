@@ -117,6 +117,7 @@ export function canUseLiveSquadTransfer(input: {
     env.SQUAD_SECRET_KEY &&
       env.SQUAD_MERCHANT_ID &&
       input.bankCode &&
+      input.bankCode !== "manual" &&
       input.accountNumber &&
       input.accountName,
   )

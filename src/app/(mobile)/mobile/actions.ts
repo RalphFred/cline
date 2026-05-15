@@ -25,6 +25,8 @@ const initialPaymentRequestActionState: PaymentRequestActionState = {
   message: "",
 }
 
+const maxUploadSizeBytes = 8 * 1024 * 1024
+
 function getFile(formData: FormData, name: string) {
   const file = formData.get(name)
 
@@ -33,6 +35,14 @@ function getFile(formData: FormData, name: string) {
   }
 
   return file
+}
+
+function getUploadSizeError(file: File | undefined, label: string) {
+  if (file && file.size > maxUploadSizeBytes) {
+    return `${label} must be 8 MB or smaller. Compress it or choose a smaller file.`
+  }
+
+  return undefined
 }
 
 export async function createFieldPaymentRequestAction(
@@ -72,6 +82,14 @@ export async function createFieldPaymentRequestAction(
   }
 
   const evidenceFile = getFile(formData, "evidenceFile")
+  const uploadSizeError = getUploadSizeError(evidenceFile, "Evidence file")
+
+  if (uploadSizeError) {
+    return {
+      status: "error",
+      message: uploadSizeError,
+    }
+  }
 
   if (
     (parsed.data.requestType === "vendor_payment" ||
@@ -129,9 +147,17 @@ export async function uploadFieldPaymentProofAction(
   const requestId = String(formData.get("requestId") ?? "")
   const proofFile = getFile(formData, "proofFile")
   const note = String(formData.get("proofNote") ?? "").trim()
+  const uploadSizeError = getUploadSizeError(proofFile, "Proof file")
 
   if (!requestId) {
     return { status: "error", message: "Choose the approved request first." }
+  }
+
+  if (uploadSizeError) {
+    return {
+      status: "error",
+      message: uploadSizeError,
+    }
   }
 
   if (!proofFile && !note) {

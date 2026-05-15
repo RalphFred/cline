@@ -423,7 +423,7 @@ export async function listRecentDemoSales(
     [
       Query.equal("organizationId", [organizationId]),
       Query.orderDesc("$createdAt"),
-      Query.limit(6),
+      Query.limit(30),
     ],
   )
 
@@ -539,6 +539,7 @@ export async function getLiveAdminMoneyInOverview(organizationId: string) {
       ids.collections.auditEvents,
       [
         Query.equal("organizationId", [organizationId]),
+        Query.equal("entityType", ["sale"]),
         Query.orderDesc("occurredAt"),
         Query.limit(6),
       ],
@@ -558,10 +559,42 @@ export async function getLiveAdminMoneyInOverview(organizationId: string) {
   const collectedKobo = paymentDocuments
     .filter((payment) => payment.status === "matched")
     .reduce((total, payment) => total + Number(payment.amountKobo ?? 0), 0)
+  const cashPaymentSaleIds = new Set(
+    paymentDocuments
+      .filter(
+        (payment) =>
+          payment.status === "matched" && payment.sourceType === "cash",
+      )
+      .map((payment) => getDocumentId(payment.saleId))
+      .filter(Boolean),
+  )
+  const cashKobo =
+    paymentDocuments
+      .filter(
+        (payment) =>
+          payment.status === "matched" && payment.sourceType === "cash",
+      )
+      .reduce((total, payment) => total + Number(payment.amountKobo ?? 0), 0) +
+    saleDocuments
+      .filter(
+        (sale) =>
+          sale.status === "paid" &&
+          sale.paymentSourceExpected === "cash" &&
+          !cashPaymentSaleIds.has(String(sale.$id)),
+      )
+      .reduce((total, sale) => total + Number(sale.expectedAmountKobo ?? 0), 0)
+  const transferKobo = paymentDocuments
+    .filter(
+      (payment) =>
+        payment.status === "matched" && payment.sourceType === "bank_transfer",
+    )
+    .reduce((total, payment) => total + Number(payment.amountKobo ?? 0), 0)
 
   return {
     expectedKobo,
     collectedKobo,
+    cashKobo,
+    transferKobo,
     pendingCount: saleDocuments.filter(
       (sale) => sale.status === "pending_payment",
     ).length,

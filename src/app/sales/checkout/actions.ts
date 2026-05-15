@@ -54,6 +54,44 @@ function getDocumentId(value: unknown) {
   return ""
 }
 
+function getDocumentString(value: unknown, fallback = "") {
+  return typeof value === "string" ? value : fallback
+}
+
+async function findMatchingPendingTransferSale(params: {
+  organizationId: string
+  createdByMemberId: string
+  title: string
+  customerLabel?: string | null
+  amountKobo: number
+}) {
+  const ids = getAppwriteIds()
+  const { databases } = createAppwriteAdminClient()
+  const response = await databases.listDocuments(
+    ids.databaseId,
+    ids.collections.sales,
+    [
+      Query.equal("organizationId", [params.organizationId]),
+      Query.equal("status", ["pending_payment"]),
+      Query.equal("createdByMemberId", [params.createdByMemberId]),
+      Query.orderDesc("$createdAt"),
+      Query.limit(25),
+    ],
+  )
+  const normalizedCustomerLabel = (params.customerLabel ?? "").trim()
+
+  return response.documents.find((document) => {
+    const data = document as AppwriteDataDocument
+
+    return (
+      data.paymentSourceExpected === "bank_transfer" &&
+      data.title === params.title &&
+      Number(data.expectedAmountKobo ?? 0) === params.amountKobo &&
+      getDocumentString(data.customerLabel).trim() === normalizedCustomerLabel
+    )
+  }) as AppwriteDataDocument | undefined
+}
+
 export async function createSaleAction(
   _prevState: CreateSaleActionState,
   formData: FormData,
@@ -105,6 +143,43 @@ export async function createSaleAction(
       inventoryItems,
       input: parsedPayload,
     })
+    const matchingPendingTransfer =
+      draft.sale.paymentSourceExpected === "bank_transfer"
+        ? await findMatchingPendingTransferSale({
+            organizationId: workspace.organizationId,
+            createdByMemberId: workspace.memberId,
+            title: draft.sale.title,
+            customerLabel: draft.sale.customerLabel,
+            amountKobo: draft.sale.expectedAmountKobo,
+          })
+        : undefined
+
+    if (matchingPendingTransfer) {
+      return {
+        status: "success",
+        message: `A matching pending transfer already exists for ${draft.sale.title}. Use that account or cancel it before creating another.`,
+        transfer: {
+          saleId: matchingPendingTransfer.$id,
+          title: getDocumentString(matchingPendingTransfer.title, draft.sale.title),
+          customerLabel: getDocumentString(matchingPendingTransfer.customerLabel),
+          amountKobo: Number(
+            matchingPendingTransfer.expectedAmountKobo ??
+              draft.sale.expectedAmountKobo,
+          ),
+          accountName: getDocumentString(
+            matchingPendingTransfer.bankTransferAccountName,
+          ),
+          accountNumber: getDocumentString(
+            matchingPendingTransfer.bankTransferAccountNumber,
+          ),
+          bankName: getDocumentString(matchingPendingTransfer.bankTransferBankName),
+          reference: getDocumentString(
+            matchingPendingTransfer.bankTransferReference,
+          ),
+        },
+      }
+    }
+
     const posRequest =
       draft.sale.paymentSourceExpected === "pos_payment"
         ? await createSquadPosPaymentRequest({
@@ -242,6 +317,23 @@ export async function createSaleAction(
               accountNumber: bankTransferAccount?.accountNumber,
               bankName: bankTransferAccount?.bankName,
               reference: bankTransferAccount?.customerIdentifier,
+            }
+          : undefined,
+      receipt:
+        draft.sale.paymentSourceExpected === "cash"
+          ? {
+              saleId,
+              title: draft.sale.title,
+              customerLabel: draft.sale.customerLabel,
+              amountKobo: draft.sale.expectedAmountKobo,
+              issuedAtIso: createdAtIso,
+              paymentMethod: "cash",
+              lines: draft.saleLines.map((line) => ({
+                label: line.label,
+                quantity: line.quantity,
+                unitPriceKobo: line.unitPriceKobo,
+                lineTotalKobo: line.lineTotalKobo,
+              })),
             }
           : undefined,
     }

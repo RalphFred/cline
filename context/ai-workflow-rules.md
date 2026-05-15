@@ -104,9 +104,13 @@ Allowed training story:
 
 - synthetic but realistic training data
 - trained ahead of time in Colab or equivalent
+- PaddleOCR for OCR on invoices, receipts, bills, and POS slips
+- LayoutLMv3 for pretrained document understanding on semi-structured evidence
+- all-MiniLM-L6-v2 for lightweight semantic transaction classification
 - `Isolation Forest` for anomaly detection
 - `XGBoost` or `LightGBM` for risk scoring
 - artifacts loaded for inference in the app/demo
+- Gemini may be used as a server-side document-extraction fallback while the PaddleOCR/LayoutLM service is not deployed
 
 Disallowed claims:
 
@@ -119,6 +123,7 @@ Disallowed claims:
 
 - deterministic rules remain first-class
 - preserve both rule outputs and model outputs
+- preserve OCR/document extraction outputs and Squad account lookup results when evidence is evaluated
 - Frank explanations should combine:
   - structured facts
   - rule outcomes
