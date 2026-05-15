@@ -53,6 +53,7 @@ Rules:
   - `pending_payment`
   - `paid`
   - `mismatch_flagged`
+- Bank-transfer sales should use the static organization-level Squad Virtual Account as the canonical Cline collection account.
 - Partial payments are out of scope for this phase.
 
 ### Money Out
@@ -80,7 +81,6 @@ The current demo role model is:
 
 - `super_admin`
 - `sales_operator`
-- `department_head`
 - `field_employee`
 
 Role responsibilities:
@@ -97,11 +97,12 @@ Role responsibilities:
   - creates `service_sale`
   - creates `manual_sale`
   - drives the clean money-in flow
-- `department_head`
-  - creates higher-context business expense requests
-  - especially `vendor_payment` and `manual_business_expense`
 - `field_employee`
+  - creates `vendor_payment`
   - creates `staff_cash_request`
+  - creates `airtime_data_request`
+  - creates `utility_payment`
+  - creates `manual_business_expense` reimbursement requests
   - uploads proof after payout when the flow requires it
 
 ## Demo Company Shape
@@ -140,7 +141,7 @@ Departments remain in the product only for money-out accountability and reportin
 
 ### 3. Vendor Payment Flow
 
-1. `department_head` creates a `vendor_payment`.
+1. `field_employee` creates a `vendor_payment`.
 2. Optional supporting file may be attached.
 3. Deterministic rules and trained risk outputs are computed.
 4. `super_admin` approves or rejects.

@@ -87,7 +87,7 @@ Important fields:
 - `organizationId`
 - `userProfileId`
 - `departmentId`
-- `role`: `super_admin`, `sales_operator`, `department_head`, `field_employee`
+- `role`: `super_admin`, `sales_operator`, `field_employee`
 - `status`: `active`, `invited`, `disabled`
 - `createdAt`
 - `updatedAt`
@@ -95,7 +95,7 @@ Important fields:
 Rules:
 
 - one active organization per user in MVP
-- `department_head` and `field_employee` can belong to departments
+- `field_employee` can belong to a department when money-out context needs it
 - `sales_operator` does not require a department
 
 ### Department
@@ -189,6 +189,11 @@ Important fields:
 - `expectedAmountKobo`
 - `status`: `pending_payment`, `paid`, `mismatch_flagged`
 - `paymentSourceExpected`: `bank_transfer`, `pos_payment`, `cash`, `manual_record`
+- `bankTransferReference`
+- `bankTransferAccountNumber`
+- `bankTransferAccountName`
+- `bankTransferBankName`
+- `bankTransferExpiresAt`
 - `notes`
 - `createdAt`
 - `updatedAt`
@@ -198,6 +203,7 @@ Rules:
 - `sales_operator` and `super_admin` can create sales
 - no partial-payment model in this phase
 - one sale reconciles to one expected amount
+- bank-transfer sales should reference the static organization-level Squad Virtual Account details when available
 
 ### Sale Line
 
@@ -244,6 +250,8 @@ Rules:
 - Squad-originated records are system-created when possible
 - manual incoming records are `super_admin` controlled in this phase
 - incoming money may exist without a sale and be marked `unclassified`
+- the Super Admin workspace has one stable organization-level Squad virtual account used as the canonical Cline collection account
+- sale-specific transfer records can reference that static account while reconciliation remains tied to exact sale amount and controlled confirmation
 
 ### Reconciliation Event
 
@@ -275,7 +283,7 @@ Important fields:
 - `title`
 - `reason`
 - `amountKobo`
-- `status`: `draft`, `submitted`, `needs_review`, `approved`, `rejected`, `paid`, `proof_required`, `closed`
+- `status`: `submitted`, `approved`, `rejected`
 - `vendorId`
 - `employeeUserProfileId`
 - `createdAt`
@@ -284,8 +292,9 @@ Important fields:
 Rules:
 
 - every submitted request requires human review
-- `department_head` and `field_employee` are primary creators depending on flow
+- `field_employee` is the primary creator for vendor payments, staff cash, airtime/data, utilities, and reimbursement requests
 - `super_admin` is final approver
+- proof requirements are captured through request evidence and request-type rules, not extra request statuses
 
 ### Request Evidence
 

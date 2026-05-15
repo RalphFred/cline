@@ -154,13 +154,15 @@ The mobile experience should stay role-specific and limited.
 
 - focused on sale creation and recent sales activity
 
-`department_head`
-
-- focused on submitting and tracking outgoing requests
-
 `field_employee`
 
-- focused on staff cash request and proof upload
+- focused on one unified outgoing request flow:
+  - vendor payment
+  - staff cash request
+  - airtime/data request
+  - utility payment
+  - reimbursement
+- proof upload is part of the flow when required
 
 If a mobile-only role is opened on desktop, render it in a constrained centered shell instead of trying full desktop parity.
 

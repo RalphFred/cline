@@ -1,5 +1,3 @@
-import "server-only"
-
 import { Account, Client, Databases, Storage } from "appwrite"
 
 import { getServerEnv } from "@/lib/env"
@@ -17,7 +15,7 @@ export function createAppwriteAdminClient() {
   const client = createBaseServerClient()
 
   if (env.APPWRITE_API_KEY) {
-    client.setDevKey(env.APPWRITE_API_KEY)
+    client.headers["X-Appwrite-Key"] = env.APPWRITE_API_KEY
   }
 
   return {

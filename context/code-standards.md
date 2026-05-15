@@ -113,7 +113,7 @@
 
 - `app/(auth)/` — sign in/up and auth pages.
 - `app/(admin)/` — Super Admin desktop-first surfaces.
-- `app/(mobile)/` — Department Head and Field Employee mobile-first surfaces.
+- `app/(mobile)/` — Field Employee mobile-first outgoing request surface.
 - `app/api/squad/*` — Squad webhook/requery routes.
 - `app/api/frank/*` — Frank chat/query endpoints.
 - `components/features/*` — feature-specific UI.

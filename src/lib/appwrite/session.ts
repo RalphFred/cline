@@ -42,7 +42,6 @@ export async function getCurrentAppwriteAccount() {
     const { account } = createAppwriteSessionClient(sessionSecret)
     return await account.get()
   } catch {
-    await clearAppwriteSessionCookie()
     return null
   }
 }

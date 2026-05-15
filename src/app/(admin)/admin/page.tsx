@@ -1,154 +1,270 @@
-import { AlertTriangle, Brain, Clock, LogOut, Wallet } from "lucide-react"
+import {
+  AlertTriangle,
+  ArrowRight,
+  BadgeCheck,
+  Clock3,
+  ClipboardCheck,
+  Wallet,
+} from "lucide-react"
 import Link from "next/link"
-import { redirect } from "next/navigation"
 
-import { signOutAction } from "@/app/(auth)/sign-in/actions"
-import { getCurrentAppwriteAccount } from "@/lib/appwrite/session"
+import { AdminShell } from "@/components/features/admin/admin-shell"
+import {
+  EmptyPanel,
+  MetricTile,
+  PageHeading,
+} from "@/components/features/admin/admin-cards"
+import {
+  formatCurrency,
+  requestTypeLabels,
+  riskBadgeClass,
+} from "@/components/features/admin/admin-format"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { buttonVariants } from "@/components/ui/button"
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
-
-const queuePreview = [
-  {
-    title: "Mainland Motors vehicle invoice",
-    department: "Procurement",
-    amount: "₦8,500,000",
-    score: "58/100",
-    level: "High concern",
-  },
-  {
-    title: "Fuel request for Lagos-Ibadan route",
-    department: "Logistics",
-    amount: "₦30,000",
-    score: "82/100",
-    level: "Low concern",
-  },
-]
-
-const stats = [
-  { label: "Pending", value: "12", icon: Clock },
-  { label: "Month spend", value: "₦4.8m", icon: Wallet },
-  { label: "Critical alerts", value: "3", icon: AlertTriangle },
-  { label: "Frank notes", value: "7", icon: Brain },
-]
+import { getSuperAdminWorkspace } from "@/lib/admin/server"
+import { getLiveAdminMoneyInOverview } from "@/lib/demo/server"
+import { listPaymentRequestSummaries } from "@/lib/payments/service"
 
 export default async function AdminPage() {
-  const account = await getCurrentAppwriteAccount()
+  const { account, workspace, staticVirtualAccount } =
+    await getSuperAdminWorkspace("/admin")
 
-  if (!account) {
-    redirect("/sign-in?next=/admin")
-  }
+  const [liveMoneyIn, liveOutgoingRequests] = await Promise.all([
+    getLiveAdminMoneyInOverview(workspace.organizationId),
+    listPaymentRequestSummaries({
+      organizationId: workspace.organizationId,
+      limit: 8,
+    }),
+  ])
+
+  const submittedRequests = liveOutgoingRequests.filter(
+    (request) => request.status === "submitted",
+  )
+  const highRiskRequests = liveOutgoingRequests.filter(
+    (request) => request.riskBand === "high",
+  )
+  const statTiles = [
+    {
+      label: "Expected revenue",
+      value: formatCurrency(liveMoneyIn.expectedKobo),
+      icon: Wallet,
+    },
+    {
+      label: "Matched collections",
+      value: formatCurrency(liveMoneyIn.collectedKobo),
+      icon: BadgeCheck,
+    },
+    {
+      label: "Pending reconciliation",
+      value: String(liveMoneyIn.pendingCount),
+      icon: Clock3,
+    },
+    {
+      label: "Awaiting decision",
+      value: String(submittedRequests.length),
+      icon: AlertTriangle,
+    },
+  ]
 
   return (
-    <main className="min-h-screen bg-background p-6">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <Badge className="bg-primary text-primary-foreground hover:bg-primary">
-              Super Admin
-            </Badge>
-            <h1 className="mt-4 text-3xl font-bold">Approval dashboard</h1>
-            <p className="mt-2 max-w-2xl text-muted-foreground">
-              This shell will become the desktop-first command center for
-              pending approvals, Frank, wallet health, and budget tracking.
-            </p>
-            <p className="mt-3 text-sm text-muted-foreground">
-              Signed in as {account.name || account.email}
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 sm:items-end">
-            <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm">
-              <span className="text-muted-foreground">Wallet balance</span>
-              <div className="mt-1 font-mono text-xl font-semibold">
-                ₦12,450,000
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Link className={buttonVariants({ variant: "outline" })} href="/">
-                Project shell
-              </Link>
-              <form action={signOutAction}>
-                <Button className="gap-2" type="submit" variant="outline">
-                  <LogOut className="size-4" />
-                  Sign out
-                </Button>
-              </form>
-            </div>
-          </div>
-        </div>
+    <AdminShell
+      accountLabel={account.name || account.email}
+      active="overview"
+      staticVirtualAccount={staticVirtualAccount}
+    >
+      <PageHeading
+        description="A desktop control room for the finance work that needs attention: money coming in, outgoing approvals, and the audit trail behind each decision."
+        eyebrow="Super Admin"
+        title="Finance overview"
+      />
 
-        <div className="grid gap-4 md:grid-cols-4">
-          {stats.map(({ label, value, icon: Icon }) => (
-            <Card key={label} className="shadow-none">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{label}</CardTitle>
-                <Icon className="size-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="font-mono text-2xl font-semibold">{value}</div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      <section className="mt-5 grid gap-4 lg:grid-cols-4">
+        {statTiles.map((tile) => (
+          <MetricTile
+            icon={tile.icon}
+            key={tile.label}
+            label={tile.label}
+            value={tile.value}
+          />
+        ))}
+      </section>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="grid gap-5">
           <Card className="shadow-none">
-            <CardHeader>
-              <CardTitle>Pending approvals</CardTitle>
-              <CardDescription>
-                Rows will link to the request detail page before any money can
-                move.
-              </CardDescription>
+            <CardHeader className="pb-3">
+              <div>
+                <CardTitle>Money-in health</CardTitle>
+                <CardDescription>
+                  Revenue, POS matching, and reconciliation exceptions.
+                </CardDescription>
+              </div>
+              <CardAction>
+                <Link
+                  className={buttonVariants({ size: "sm", variant: "outline" })}
+                  href="/admin/money-in"
+                >
+                  Open money in
+                  <ArrowRight data-icon="inline-end" />
+                </Link>
+              </CardAction>
             </CardHeader>
-            <CardContent className="space-y-5">
-              {queuePreview.map((item, index) => (
-                <div key={item.title}>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardContent>
+              <div className="grid gap-3">
+                {[
+                  {
+                    label: "POS collections matched",
+                    value: formatCurrency(liveMoneyIn.collectedKobo),
+                    note: `${liveMoneyIn.paidCount} sale${
+                      liveMoneyIn.paidCount === 1 ? "" : "s"
+                    } reconciled through the POS flow.`,
+                  },
+                  {
+                    label: "Sales waiting for payment",
+                    value: String(liveMoneyIn.pendingCount),
+                    note: "Expected revenue with no matched incoming payment.",
+                  },
+                  {
+                    label: "Inventory-backed sales under watch",
+                    value: String(liveMoneyIn.flaggedCount),
+                    note: "Flagged sales preserve reconciliation events and Frank inputs.",
+                  },
+                ].map((item) => (
+                  <div
+                    className="grid grid-cols-[1fr_150px] items-center gap-4 rounded-lg border border-border bg-background px-4 py-3"
+                    key={item.label}
+                  >
                     <div>
-                      <h2 className="font-semibold">{item.title}</h2>
-                      <p className="text-sm text-muted-foreground">
-                        {item.department} · {item.amount}
+                      <div className="font-medium">{item.label}</div>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {item.note}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">{item.score}</Badge>
-                      <Badge className="bg-warning text-white hover:bg-warning">
-                        {item.level}
-                      </Badge>
+                    <div className="text-right font-mono text-lg font-semibold text-primary">
+                      {item.value}
                     </div>
                   </div>
-                  {index < queuePreview.length - 1 ? (
-                    <Separator className="mt-5" />
-                  ) : null}
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-none">
+            <CardHeader className="pb-3">
+              <div>
+                <CardTitle>Approval queue</CardTitle>
+                <CardDescription>
+                  Submitted requests that need a finance decision.
+                </CardDescription>
+              </div>
+              <CardAction>
+                <Link
+                  className={buttonVariants({ size: "sm", variant: "outline" })}
+                  href="/admin/approvals"
+                >
+                  Review approvals
+                  <ArrowRight data-icon="inline-end" />
+                </Link>
+              </CardAction>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              {submittedRequests.length > 0 ? (
+                submittedRequests.slice(0, 4).map((request) => (
+                  <Link
+                    className="grid grid-cols-[1fr_130px_82px] items-center gap-4 rounded-lg border border-border bg-background px-4 py-3 transition hover:bg-secondary/55"
+                    href="/admin/approvals"
+                    key={request.id}
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{request.title}</div>
+                      <div className="mt-1 text-sm text-muted-foreground">
+                        {requestTypeLabels[request.requestType]} -{" "}
+                        {request.location}
+                      </div>
+                    </div>
+                    <div className="text-right font-mono font-semibold">
+                      {formatCurrency(request.amountKobo)}
+                    </div>
+                    <Badge className={riskBadgeClass(request.riskBand)}>
+                      {request.riskScore.toFixed(2)}
+                    </Badge>
+                  </Link>
+                ))
+              ) : (
+                <EmptyPanel>No submitted requests are waiting for review.</EmptyPanel>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <aside className="grid content-start gap-5">
+          <Card className="shadow-none">
+            <CardHeader className="pb-3">
+              <CardTitle>Today's focus</CardTitle>
+              <CardDescription>Start with the highest-impact work.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              <div className="rounded-lg border border-border bg-background px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="font-medium">Submitted approvals</div>
+                  <Badge variant="secondary">{submittedRequests.length}</Badge>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Decide what should be paid, rejected, or sent back for proof.
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-background px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="font-medium">Flagged money-in</div>
+                  <Badge variant="secondary">{liveMoneyIn.flaggedCount}</Badge>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Inspect stock-to-payment mismatches before closing the day.
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-background px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="font-medium">High-risk requests</div>
+                  <Badge variant="secondary">{highRiskRequests.length}</Badge>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Keep larger or weaker-documentation requests visible.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-none">
+            <CardHeader className="pb-3">
+              <CardTitle>Recent activity</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-2">
+              {(liveMoneyIn.recentActivity.length > 0
+                ? liveMoneyIn.recentActivity.slice(0, 5)
+                : [
+                    "Create and confirm a POS sale to populate the live audit trail.",
+                  ]
+              ).map((item, index) => (
+                <div
+                  className="flex items-start gap-3 rounded-lg bg-background px-3 py-3 text-sm"
+                  key={`${item}-${index}`}
+                >
+                  <ClipboardCheck className="mt-0.5 size-4 text-primary" />
+                  <span className="leading-5 text-muted-foreground">{item}</span>
                 </div>
               ))}
             </CardContent>
           </Card>
-
-          <Card className="shadow-none">
-            <CardHeader>
-              <CardTitle>Frank</CardTitle>
-              <CardDescription>
-                Read-only AI CFO assistant and alert feed.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-lg bg-soft p-4 text-sm leading-6">
-                Logistics is projected to cross 90% of its monthly budget before
-                the 20th if the pending fuel request is approved.
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </main>
+        </aside>
+      </section>
+    </AdminShell>
   )
 }

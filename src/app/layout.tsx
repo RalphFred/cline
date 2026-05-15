@@ -4,7 +4,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Cline",
-  description: "Spend authorization and disbursement for Nigerian SMEs.",
+  description:
+    "Finance operating system for Nigerian SMEs with money-in visibility, payment control, and transaction intelligence.",
 };
 
 export default function RootLayout({

@@ -85,7 +85,6 @@ Appwrite Auth manages identity and session. Application roles are stored in memb
 
 - `super_admin`
 - `sales_operator`
-- `department_head`
 - `field_employee`
 
 ### Access Rules
@@ -93,10 +92,9 @@ Appwrite Auth manages identity and session. Application roles are stored in memb
 1. Every authenticated user belongs to one active organization in MVP.
 2. `super_admin` can view and operate across the organization.
 3. `sales_operator` can create and review their sales-related work, but not approve outgoing payments.
-4. `department_head` can create department-related outgoing requests.
-5. `field_employee` can create staff cash requests and upload proof.
-6. Manual incoming payment confirmation is `super_admin` only in this phase.
-7. All authorization is enforced server-side.
+4. `field_employee` can create outgoing requests for vendors, staff cash, airtime/data, utilities, and reimbursements, then upload proof when required.
+5. Manual incoming payment confirmation is `super_admin` only in this phase.
+6. All authorization is enforced server-side.
 
 ## Squad Integration Architecture
 
@@ -107,7 +105,7 @@ Squad must feel central to the product, not bolted on.
 Supported collection sources:
 
 - POS payment
-- bank transfer
+- bank transfer through the static organization-level Squad Virtual Account
 - manual record
 - cash record
 
@@ -120,11 +118,18 @@ Preferred truth model:
 ### Clean POS Flow
 
 1. `sales_operator` creates sale.
-2. Cline creates or references a POS collection request.
+2. Cline creates or references a POS collection request, or references the static Squad Virtual Account for bank-transfer sales.
 3. Squad reports the payment result.
 4. Cline records incoming payment.
 5. Reconciliation compares sale amount to actual received amount.
 6. Sale status becomes `paid` or `mismatch_flagged`.
+
+### Static Virtual Account Flow
+
+1. Cline resolves a stable organization-level Squad business virtual account for the Super Admin workspace.
+2. The static virtual account is shown as the canonical Cline collection account in admin and transfer-payment surfaces.
+3. Squad virtual-account webhooks are preserved idempotently and verified when webhook secrets are configured.
+4. Sale-specific bank-transfer reconciliation can reference the static account while still matching exact amounts through controlled Cline actions in the demo phase.
 
 ### Flagged Money-In Flow
 
@@ -294,7 +299,7 @@ Audit events should exist for:
 
 - `app/(auth)/` — sign in and auth
 - `app/(admin)/` — `super_admin` desktop-first control room
-- `app/(mobile)/` — simplified role-driven flows for `sales_operator`, `department_head`, and `field_employee`
+- `app/(mobile)/` — simplified role-driven flows for `sales_operator` and `field_employee`
 
 ### Primary Experience
 
